@@ -1,0 +1,34 @@
+{
+  "$schema": "../gen/schemas/desktop-capability.json",
+  "identifier": "default",
+  "description": "Capability for the main window",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "opener:default",
+    "fs:default",
+    "fs:allow-read-text-file",
+    "fs:allow-write-text-file",
+    "fs:allow-exists",
+    "fs:allow-mkdir",
+    {
+      "identifier": "fs:allow-create",
+      "allow": [{ "path": "$APPDATA/**" }]
+    },
+    {
+      "identifier": "fs:allow-appdata-write", 
+      "allow": [{ "path": "$APPDATA/**" }]
+    },
+    {
+      "identifier": "fs:allow-appdata-write-recursive",
+      "allow": [{ "path": "$APPDATA/**" }]
+    },
+    {
+      "identifier": "fs:scope",
+      "allow": [{ "path": "C:\\dev\\anime_checker\\*" },
+      "$APPDATA/**"
+    ]
+    },
+    "opener:allow-default-urls" 
+  ]
+}

@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="styles.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tauri App</title>
+    <script type="module" src="/main.js" defer></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  </head>
+
+  <body>
+    <main class="container">
+      <form class="row" id="input-form">
+        <input id="name-input" placeholder="Enter a name..." />
+        <button type="submit">Submit</button>
+      </form>
+      <button type="button" id="show-popup-btn">Restore Anime</button>
+      <button type="button" id="show-popup2-btn">Delete phrase</button>
+      <button type="button" id="show-popup3-btn">Change settings</button>
+      <button type="button" id="hard-reset-btn">
+        <i class="fas fa-sync-alt"></i> Hard reset
+      </button>
+      <div id="counter-display"></div>
+    </main>
+
+    <!-- Popup Modal -->
+    <div id="popup-modal" class="modal-overlay">
+      <div class="modal-content">
+        <h2 class="modal-title">Select Anime to Restore</h2>
+        
+        <div class="search-container">
+          <input type="text" id="popup-search" placeholder="Search anime..." class="search-input">
+        </div>
+        
+        <div id="checkbox-list" class="checkbox-list">
+          <div class="loading-message">Loading anime list...</div>
+        </div>
+        
+        <div id="selected-count" class="selected-count">Selected: 0</div>
+        
+        <div class="modal-actions">
+          <button type="button" id="popup-cancel" class="cancel-btn">Cancel</button>
+          <button type="button" id="popup-add-selected" class="add-selected-btn">I haven't watched these</button>
+        </div>
+      </div>
+    </div>
+
+
+    <div id="popup2-modal" class="modal-overlay">
+      <div class="modal-content">
+        <h2 class="modal-title">Select Anime to Restore</h2>
+        
+        <div class="search-container">
+          <input type="text" id="popup2-search" placeholder="Search anime..." class="search-input">
+        </div>
+        
+        <div id="checkbox2-list" class="checkbox-list">
+          <div class="loading-message">Loading anime list...</div>
+        </div>
+        
+        <div id="selected-count2" class="selected-count">Selected: 0</div>
+        
+        <div class="modal-actions">
+          <button type="button" id="popup-cancel2" class="cancel-btn">Cancel</button>
+          <button type="button" id="popup-add-selected2" class="add-selected-btn">Delete phrases</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="popup3-modal" class="modal-overlay">
+      <div class="modal-content">
+        <h2 class="modal-title">Settings</h2>
+        
+        <div id="checkbox3-list" class="checkbox-list">
+          <div class="loading-message">Loading settings...</div>
+        </div>
+        
+        <div id="checkbox4-list" class="checkbox-list">
+          <div class="loading-message">Loading settings...</div>
+        </div>
+                
+        <div class="modal-actions">
+          <button type="button" id="popup-cancel3" class="cancel-btn">Cancel</button>
+          <button type="button" id="popup-add-selected3" class="add-selected-btn">Change settings</button>
+        </div>
+      </div>
+    </div>
+
+
+    <div id="main-search-container" style="margin: 10px 0; display: flex; gap: 10px;">
+      <input type="text" id="main-search" placeholder="Search anime..." style="flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+      <button id="clear-search" style="padding: 8px 16px; background-color: #555; color: white; border: none; border-radius: 4px; cursor: pointer;">Clear</button>
+    </div>
+
+    <div id="anime-container"></div>
+  </body>
+</html>

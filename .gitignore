@@ -1,0 +1,38 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Tauri
+src-tauri/target/
+src-tauri/debug/
+src-tauri/release/
+src-tauri/Cargo.lock
+
+# User data files (these are created when app runs)
+*.json
+*.txt
+!package.json
+!tsconfig.json
+!src-tauri/tauri.conf.json
+!src-tauri/capabilities/*.json
