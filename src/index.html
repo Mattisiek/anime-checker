@@ -11,17 +11,17 @@
 
   <body>
     <main class="container">
-      <form class="row" id="input-form">
+      <form class="row" id="input-form" style="display: none;">
         <input id="name-input" placeholder="Enter a name..." />
         <button type="submit">Submit</button>
       </form>
-      <button type="button" id="show-popup-btn">Restore Anime</button>
-      <button type="button" id="show-popup2-btn">Delete phrase</button>
-      <button type="button" id="show-popup3-btn">Change settings</button>
-      <button type="button" id="hard-reset-btn">
+      <button type="button" id="show-popup-btn" style="display: none;">Restore Anime</button>
+      <button type="button" id="show-popup2-btn" style="display: none;">Delete phrase</button>
+      <button type="button" id="show-popup3-btn" style="display: none;">Change settings</button>
+      <button type="button" id="hard-reset-btn" style="display: none;">
         <i class="fas fa-sync-alt"></i> Hard reset
       </button>
-      <div id="counter-display"></div>
+      <div id="counter-display" style="display: none;"></div>
     </main>
 
     <!-- Popup Modal -->
@@ -88,7 +88,7 @@
     </div>
 
 
-    <div id="main-search-container" style="margin: 10px 0; display: flex; gap: 10px;">
+    <div id="main-search-container" style="margin: 10px 0; display: none; gap: 10px;">
       <input type="text" id="main-search" placeholder="Search anime..." style="flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
       <button id="clear-search" style="padding: 8px 16px; background-color: #555; color: white; border: none; border-radius: 4px; cursor: pointer;">Clear</button>
     </div>

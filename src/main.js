@@ -29,7 +29,7 @@ const CACHE_PATH = await join(appDataPath, 'cache.json');
 const SEASON_PATH = await join(appDataPath, 'season.txt');
 
 var delay = 1001;
-var currTime = Date.now();
+var currTime = Date.now() + delay;
 const typeOfAnime = ['TV', 'Movie', 'ONA', 'OVA', 'Special', 'TV Special', 'CM', 'PV', 'Music', 'null'];
 const typeOfAiring = ['Finished Airing', 'Currently Airing', 'Not yet aired'];
 
@@ -103,6 +103,25 @@ async function getPhrases() {
         .split(/\r?\n/)
         .map(line => line.trim())
         .filter(line => line.length > 0);
+}
+
+function changeVisibility(vis){
+    
+    const postLoadControls = document.getElementById('main-search-container');
+    const popupButton = document.getElementById('show-popup-btn');
+    const popupButton2 = document.getElementById('show-popup2-btn');
+    const popupButton3 = document.getElementById('show-popup3-btn');
+    const hardResetButton = document.getElementById('hard-reset-btn');
+    const inputForm = document.getElementById('input-form');
+    const counterDisplay = document.getElementById('counter-display');
+    
+    postLoadControls.style.display = vis;
+    popupButton.style.display = vis;
+    popupButton2.style.display = vis;
+    popupButton3.style.display = vis;
+    hardResetButton.style.display = vis;
+    inputForm.style.display = vis;
+    counterDisplay.style.display = vis;
 }
 
 async function getWatchlist() {
@@ -249,6 +268,7 @@ async function addSingleAnime(name) {
 
                 if (title.includes(searchTerm) || englishTitle.includes(searchTerm)) {
                     const existingAnime = allResults.find(a => a.mal_id === anime.mal_id);
+                    // alert(title);
 
                     if (existingAnime) {
                         existingAnime.count = (existingAnime.count || 1) + 1;
@@ -259,13 +279,12 @@ async function addSingleAnime(name) {
                     }
                     currentRes++;
                 }
+                // else alert(title);
             }
 
             hasNextPage = data.pagination?.has_next_page === true;
 
-            if (results.length < pageLen) {
-                hasNextPage = false;
-            }
+            if (results.length < pageLen) hasNextPage = false;
 
             page++;
 
@@ -280,9 +299,7 @@ async function addSingleAnime(name) {
             alert(`❌ Error on page ${page}: ${error.message}`);
             hasNextPage = false;
         }
-        if (currentRes === 0) {
-            break;
-        }
+        if (currentRes === 0) break;
     }
     return allPageResults;
 }
@@ -292,37 +309,15 @@ async function insertIntoFile(name) {
         const current = await fs.readTextFile(PHRASES_PATH);
         const updated = current.trim() + (current.trim() ? '\n' : '') + name;
 
-        const postLoadControls = document.getElementById('main-search-container');
-        const popupButton = document.getElementById('show-popup-btn');
-        const popupButton2 = document.getElementById('show-popup2-btn');
-        const popupButton3 = document.getElementById('show-popup3-btn');
-        const hardResetButton = document.getElementById('hard-reset-btn');
-        const inputForm = document.getElementById('input-form');
-        const counterDisplay = document.getElementById('counter-display');
-
         container.innerHTML = 'Loading...';
 
-        postLoadControls.style.display = 'none';
-
-        popupButton.style.display = 'none';
-        popupButton2.style.display = 'none';
-        popupButton3.style.display = 'none';
-        hardResetButton.style.display = 'none';
-        inputForm.style.display = 'none';
-        counterDisplay.style.display = 'none';
+        changeVisibility('none');
 
         await addSingleAnime(name);
 
         await fs.writeTextFile(PHRASES_PATH, updated);
 
-        postLoadControls.style.display = 'flex';
-
-        popupButton.style.display = 'flex';
-        popupButton2.style.display = 'flex';
-        popupButton3.style.display = 'flex';
-        hardResetButton.style.display = 'flex';
-        inputForm.style.display = 'flex';
-        counterDisplay.style.display = 'flex';
+        changeVisibility('flex');
 
         writeToCache(allResults);
         await renderList(allResults);
@@ -434,9 +429,7 @@ async function getSeasonalAnime(year, season) {
                 let c = 0;
                 for (const phraseUnchanged of phrases) {
                     const phrase = phraseUnchanged.toLowerCase();
-                    if (title.includes(phrase) || englishTitle.includes(phrase)) {
-                        c += 1;
-                    }
+                    if (title.includes(phrase) || englishTitle.includes(phrase)) c += 1;
                 }
                 const existingAnime = allPageResults.find(a => a.mal_id === anime.mal_id);
                 if (c > 0) {
@@ -473,22 +466,7 @@ async function loadAllAnime() {
 
     container.innerHTML = 'Loading...';
 
-    const postLoadControls = document.getElementById('main-search-container');
-    const popupButton = document.getElementById('show-popup-btn');
-    const popupButton2 = document.getElementById('show-popup2-btn');
-    const popupButton3 = document.getElementById('show-popup3-btn');
-    const hardResetButton = document.getElementById('hard-reset-btn');
-    const inputForm = document.getElementById('input-form');
-    const counterDisplay = document.getElementById('counter-display');
-
-    postLoadControls.style.display = 'none';
-
-    popupButton.style.display = 'none';
-    popupButton2.style.display = 'none';
-    popupButton3.style.display = 'none';
-    hardResetButton.style.display = 'none';
-    inputForm.style.display = 'none';
-    counterDisplay.style.display = 'none';
+    changeVisibility('none');
 
     allResults = [];
     var animeTitles = await getPhrases();
@@ -515,22 +493,7 @@ async function loadAllAnimeBySeason() {
 
     container.innerHTML = 'Loading...';
 
-    const postLoadControls = document.getElementById('main-search-container');
-    const popupButton = document.getElementById('show-popup-btn');
-    const popupButton2 = document.getElementById('show-popup2-btn');
-    const popupButton3 = document.getElementById('show-popup3-btn');
-    const hardResetButton = document.getElementById('hard-reset-btn');
-    const inputForm = document.getElementById('input-form');
-    const counterDisplay = document.getElementById('counter-display');
-
-    postLoadControls.style.display = 'none';
-
-    popupButton.style.display = 'none';
-    popupButton2.style.display = 'none';
-    popupButton3.style.display = 'none';
-    hardResetButton.style.display = 'none';
-    inputForm.style.display = 'none';
-    counterDisplay.style.display = 'none';
+    changeVisibility('none');
 
     const savedSeason = await getSeason();
     const prevSeason = getPreviousSeason(savedSeason[0], savedSeason[1]);
@@ -538,7 +501,6 @@ async function loadAllAnimeBySeason() {
     prevSeason.season = savedSeason[1];
     const currSeason = getCurrentMALSeason();
 
-    let currRes = [];
     let t = -1;
     let isIn = false;
     for (let year = Number(prevSeason.year); year <= Number(currSeason.year); year++) {
@@ -594,14 +556,7 @@ async function loadAllAnimeBySeason() {
         }
     }
 
-    postLoadControls.style.display = 'flex';
-
-    popupButton.style.display = 'flex';
-    popupButton2.style.display = 'flex';
-    popupButton3.style.display = 'flex';
-    hardResetButton.style.display = 'flex';
-    inputForm.style.display = 'flex';
-    counterDisplay.style.display = 'flex';
+    changeVisibility('flex');
 
     await writeToCache(allResults);
     await renderList(allResults);
@@ -737,9 +692,8 @@ async function renderList(list, preserveOriginal = false) {
         if (anime.status === "Not yet aired" && anime.aired.from) {
             airDateHtml = `<p>Supposed first air: ${airedFrom}</p>`;
         }
-        else if (anime.status === "Not yet aired") {
-            airDateHtml = ``;
-        }
+        else if (anime.status === "Not yet aired") airDateHtml = ``;
+
         else if (anime.aired?.to) {
             airDateHtml = `<p>First air: ${airedFrom}</p><p>Last air: ${airedTo}</p>`;
         } else {
@@ -757,19 +711,13 @@ async function renderList(list, preserveOriginal = false) {
         if (anime.title_english === null || anime.title_english === anime.title) {
             nameHtml = `<h3>${anime.title}</h3>`;
         }
-        else {
-            nameHtml = `<h3>${anime.title}</h3><h3>${anime.title_english}</h3>`;
-        }
+        else nameHtml = `<h3>${anime.title}</h3><h3>${anime.title_english}</h3>`;
 
         if (anime.episodes !== null) {
             episodesHtml = `<p>Episodes: ${anime.episodes}</p>`;
         }
 
-        else {
-            nameHtml = `<h3>${anime.title}</h3>
-                  <h3>${anime.title_english}</h3>`;
-
-        }
+        else nameHtml = `<h3>${anime.title}</h3> <h3>${anime.title_english}</h3>`;
 
         tempHTMLcontent += `
       <div class="anime-card" style="margin-bottom: 20px; border: 1px solid #ccc; padding: 10px;">
@@ -784,7 +732,6 @@ async function renderList(list, preserveOriginal = false) {
         -->
         ${airDateHtml}
         ${episodesHtml}
-        <p>Count: ${anime.count}</p>
         <p>
           <a href="#" 
             onclick="event.preventDefault(); window.__TAURI__.opener.openUrl('${anime.url}');" 
@@ -928,17 +875,17 @@ function initPopup() {
         filteredItems.forEach(anime => {
             const isChecked = selectedItems.has(anime.mal_id);
             html += `
-        <div style="margin-bottom: 8px; padding: 5px; border-bottom: 1px solid #eee;">
-          <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
-            <input type="checkbox" value="${anime.mal_id}" ${isChecked ? 'checked' : ''} style="width: 18px; height: 18px;">
-            <div style="flex-grow: 1;">
-              <div style="font-weight: bold;">${anime.title}</div>
-              <div style="font-weight: bold;">${anime.title_english}</div>
-              <div style="font-size: 0.9em; color: #666;">${anime.type} | Score: ${anime.score || 'N/A'}</div>
+            <div style="margin-bottom: 8px; padding: 5px; border-bottom: 1px solid #eee;">
+            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                <input type="checkbox" value="${anime.mal_id}" ${isChecked ? 'checked' : ''} style="width: 18px; height: 18px;">
+                <div style="flex-grow: 1;">
+                <div style="font-weight: bold;">${anime.title}</div>
+                <div style="font-weight: bold;">${anime.title_english}</div>
+                <div style="font-size: 0.9em; color: #666;">${anime.type} | Score: ${anime.score || 'N/A'}</div>
+                </div>
+            </label>
             </div>
-          </label>
-        </div>
-      `;
+        `;
         });
 
         checkboxList.innerHTML = html;
@@ -1332,40 +1279,17 @@ function hardReset() {
         appLaunched = false;
 
         const searchInput = document.getElementById('main-search');
-        if (searchInput) {
-            searchInput.value = '';
-        }
+        searchInput.value = '';
 
-        const postLoadControls = document.getElementById('main-search-container');
-        const popupButton = document.getElementById('show-popup-btn');
-        const popupButton2 = document.getElementById('show-popup2-btn');
-        const popupButton3 = document.getElementById('show-popup3-btn');
-        const hardResetButton = document.getElementById('hard-reset-btn');
-        const inputForm = document.getElementById('input-form');
-        const counterDisplay = document.getElementById('counter-display');
-
-        if (postLoadControls) postLoadControls.style.display = 'none';
-
-        popupButton.style.display = 'none';
-        popupButton2.style.display = 'none';
-        popupButton3.style.display = 'none';
-        hardResetButton.style.display = 'none';
-        inputForm.style.display = 'none';
+        changeVisibility('none');
 
         const container = document.getElementById('anime-container');
-        if (container) {
-            container.innerHTML = 'Loading...';
-        }
+        container.innerHTML = 'Loading...';
+
 
         await loadAllAnime();
-        postLoadControls.style.display = 'flex';
 
-        popupButton.style.display = 'flex';
-        popupButton2.style.display = 'flex';
-        popupButton3.style.display = 'flex';
-        hardResetButton.style.display = 'flex';
-        inputForm.style.display = 'flex';
-        counterDisplay.style.display = 'flex';
+        changeVisibility('flex');
     };
 }
 

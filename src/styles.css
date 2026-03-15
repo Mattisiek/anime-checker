@@ -1,3 +1,4 @@
+
 .logo.vanilla:hover {
   filter: drop-shadow(0 0 2em #ffe21c);
 }
@@ -131,7 +132,6 @@ button {
   }
 }
 
-/* Modal Overlay */
 .modal-overlay {
   display: none;
   position: fixed;
@@ -149,7 +149,6 @@ button {
   display: flex !important;
 }
 
-/* Modal Content */
 .modal-content {
   background-color: #2d2d2d !important;
   color: #e0e0e0 !important;
@@ -172,7 +171,6 @@ button {
   padding-bottom: 10px;
 }
 
-/* Search Container */
 .search-container {
   margin-bottom: 15px;
 }
@@ -200,7 +198,6 @@ button {
   color: #888 !important;
 }
 
-/* Checkbox List */
 .checkbox-list {
   margin-bottom: 15px;
   max-height: 300px;
@@ -236,7 +233,6 @@ button {
   color: #666;
 }
 
-/* Selected Count */
 .selected-count {
   margin-bottom: 15px;
   font-weight: bold;
@@ -246,14 +242,12 @@ button {
   border-radius: 4px;
 }
 
-/* Modal Actions */
 .modal-actions {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
 }
 
-/* ALL BUTTONS - unified styling */
 .modal-actions button,
 #show-popup-btn,
 #show-popup2-btn,
@@ -264,6 +258,7 @@ button {
 .cancel-btn,
 .restore-btn {
   border-radius: 8px;
+  display: flex;
   border: 1px solid transparent;
   padding: 0.6em 1.2em;
   font-size: 1em;
@@ -274,7 +269,6 @@ button {
   box-shadow: 0 2px 2px rgba(0, 0, 0, 0.2);
 }
 
-/* Main action buttons (Restore, Phrases, Filters, Reset) */
 #show-popup-btn,
 #show-popup2-btn,
 #show-popup3-btn,
@@ -306,7 +300,6 @@ button {
   background-color: #444;
 }
 
-/* Add Selected button (green) */
 .add-selected-btn {
   background-color: #2d5a2d !important;
   color: #e0e0e0 !important;
@@ -325,7 +318,6 @@ button {
   cursor: not-allowed;
 }
 
-/* Cancel button */
 .cancel-btn {
   background-color: #4a4a4a !important;
   color: #e0e0e0 !important;
@@ -337,7 +329,6 @@ button {
   border-color: #6a6a6a !important;
 }
 
-/* Counter Display */
 .counter {
   margin: 10px 0;
   font-weight: bold;
@@ -352,7 +343,6 @@ button {
   margin-top: 15px;
 }
 
-/* Debug Panel */
 .debug-panel {
   position: fixed;
   bottom: 0;
@@ -367,7 +357,6 @@ button {
   z-index: 9999;
 }
 
-/* Scrollbar Styling */
 .checkbox-list::-webkit-scrollbar {
   width: 8px;
 }
@@ -389,13 +378,13 @@ button {
   position: fixed;
   top: 20px;
   right: 20px;
-  width: auto;  /* Override the 300px width */
-  margin: 0;    /* Override the auto margin */
+  width: auto;
+  margin: 0;
   z-index: 1000;
   display: flex;
   align-items: center;
-  gap: 8px;     /* Space between icon and text */
-  background-color: #dc3545;  /* Red color for reset */
+  gap: 8px;
+  background-color: #dc3545;
   color: white;
   border: none;
   padding: 10px 20px;
@@ -415,7 +404,6 @@ button {
   font-size: 1.1em;
 }
 
-/* Make sure it's not affected by other button styles */
 #hard-reset-btn {
   width: auto !important;
   margin: 0 !important;
