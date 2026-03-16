@@ -36,9 +36,11 @@ const typeOfAiring = ['Finished Airing', 'Currently Airing', 'Not yet aired'];
 var originalResults = [];
 var currentSearchTerm = '';
 var allResults = [];
+var allResultsRecommendations = [];
 let appLaunched = false;
-
+let gotRecommendations = false;
 let scrollPosition = 0;
+let currentlyShown = 'anime';
 
 const container = document.getElementById('anime-container');
 
@@ -96,6 +98,10 @@ async function initFiles() {
 
 await initFiles();
 
+function showLoading(){
+    container.innerHTML = 'Loading...';
+}
+
 async function getPhrases() {
     const content = await fs.readTextFile(PHRASES_PATH);
 
@@ -103,6 +109,15 @@ async function getPhrases() {
         .split(/\r?\n/)
         .map(line => line.trim())
         .filter(line => line.length > 0);
+}
+
+function changeVisibilitySwitch(vis){
+    
+    const animes = document.getElementById('show-anime');
+    const recommendations = document.getElementById('show-recommendations');
+    
+    animes.style.display = vis;
+    recommendations.style.display = vis;
 }
 
 function changeVisibility(vis){
@@ -114,6 +129,8 @@ function changeVisibility(vis){
     const hardResetButton = document.getElementById('hard-reset-btn');
     const inputForm = document.getElementById('input-form');
     const counterDisplay = document.getElementById('counter-display');
+
+    changeVisibilitySwitch(vis);
     
     postLoadControls.style.display = vis;
     popupButton.style.display = vis;
@@ -309,7 +326,7 @@ async function insertIntoFile(name) {
         const current = await fs.readTextFile(PHRASES_PATH);
         const updated = current.trim() + (current.trim() ? '\n' : '') + name;
 
-        container.innerHTML = 'Loading...';
+        showLoading();
 
         changeVisibility('none');
 
@@ -464,7 +481,7 @@ async function getSeasonalAnime(year, season) {
 
 async function loadAllAnime() {
 
-    container.innerHTML = 'Loading...';
+    showLoading();
 
     changeVisibility('none');
 
@@ -491,7 +508,7 @@ async function loadAllAnimeBySeason() {
     if (appLaunched) return;
     appLaunched = true;
 
-    container.innerHTML = 'Loading...';
+    showLoading();
 
     changeVisibility('none');
 
@@ -1283,8 +1300,7 @@ function hardReset() {
 
         changeVisibility('none');
 
-        const container = document.getElementById('anime-container');
-        container.innerHTML = 'Loading...';
+        showLoading();
 
 
         await loadAllAnime();
@@ -1324,10 +1340,99 @@ function initMainSearch() {
     });
 }
 
+async function loadTopAnime() {
+    const maxPages = 20;
+    let page = 1;
+    let pageLen = 25;
+    let hasNextPage = true;
+    let allPageResults = [];
+
+    while (hasNextPage && page <= maxPages) {
+        try {
+            const response = await fetch(`https://api.jikan.moe/v4/top/anime?page=${page}&limit=25`);
+            const data = await response.json();
+
+            const results = data.data || [];
+
+            for (let j = 0; j < results.length; j++) {
+                const anime = results[j];
+                anime.count = 1;
+                allPageResults.push(anime);
+            }
+
+            hasNextPage = data.pagination?.has_next_page === true;
+
+            if (results.length < pageLen) {
+                hasNextPage = false;
+            }
+
+            page++;
+
+            const currDelay = Math.max(delay - (Date.now() - currTime), 10);
+            await new Promise(resolve => setTimeout(resolve, currDelay));
+            currTime = Date.now();
+
+        } catch (error) {
+            alert(`❌ Error on page ${page}: ${error.message}`);
+            hasNextPage = false;
+        }
+    }
+    return allPageResults;
+}
+
+function ShowAnime() {
+    const btn = document.getElementById('show-anime');
+
+    btn.onclick = async () => {
+        if(currentlyShown === 'anime'){
+            return;
+        }
+        changeVisibility('none');
+        currentlyShown = 'anime';
+        await renderList(allResults);
+        changeVisibility('flex');
+    };
+}
+
+function ShowRecommendations() {
+    const btn = document.getElementById('show-recommendations');
+
+    btn.onclick = async () => {
+        if(currentlyShown === 'recommendations'){
+            return;
+        }
+        changeVisibility('none');
+        currentlyShown = 'recommendations';
+        showLoading();
+        if (!gotRecommendations){
+            allResultsRecommendations = await loadTopAnime();
+        }
+        let allResultsRecommendationsToRender = [];
+        let isIn;
+
+        for (const animeA of allResultsRecommendations) {
+            isIn = false;
+            for (const animeB of allResults) {
+                if (animeA.mal_id === animeB.mal_id) {
+                    isIn = true;
+                }
+            }
+            if (!isIn) {
+                allResultsRecommendationsToRender.push(animeA);
+            }
+        }
+        gotRecommendations = true;
+        await renderList(allResultsRecommendationsToRender);
+        changeVisibilitySwitch('flex');
+    };
+}
+
 initPopup();
 initPopup2();
 initPopup3();
 hardReset();
+ShowAnime();
+ShowRecommendations();
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initMainSearch);
 } else {

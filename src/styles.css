@@ -253,6 +253,8 @@ button {
 #show-popup2-btn,
 #show-popup3-btn,
 #hard-reset-btn,
+#show-anime,
+#show-recommendations,
 .popup-button,
 .add-selected-btn,
 .cancel-btn,
@@ -272,7 +274,6 @@ button {
 #show-popup-btn,
 #show-popup2-btn,
 #show-popup3-btn,
-#hard-reset-btn,
 .popup-button {
   width: 300px;
   margin: 10px auto;
@@ -286,7 +287,6 @@ button {
 #show-popup-btn:hover,
 #show-popup2-btn:hover,
 #show-popup3-btn:hover,
-#hard-reset-btn:hover,
 .popup-button:hover {
   background-color: #666;
   border-color: #396cd8;
@@ -295,7 +295,6 @@ button {
 #show-popup-btn:active,
 #show-popup2-btn:active,
 #show-popup3-btn:active,
-#hard-reset-btn:active,
 .popup-button:active {
   background-color: #444;
 }
@@ -404,7 +403,36 @@ button {
   font-size: 1.1em;
 }
 
-#hard-reset-btn {
-  width: auto !important;
-  margin: 0 !important;
+
+
+
+
+
+.button-container {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  display: flex;
+  flex-direction: row; /* Stack vertically */
+  gap: 10px; /* Automatic spacing between buttons */
+  z-index: 1000;
+}
+
+.button-container button {
+  /* Your button styles here - without position: fixed */
+  width: auto;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1em;
+  transition: all 0.3s ease;
+}
+
+.button-container button:hover {
+  transform: scale(1.05);
+}
+
+.button-container i {
+  font-size: 1.1em;
 }
