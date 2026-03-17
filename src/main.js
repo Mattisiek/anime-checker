@@ -875,7 +875,6 @@ async function renderList(list, preserveOriginal = false) {
         -->
         ${airDateHtml}
         ${episodesHtml}
-        <p> Count: ${anime.count} </p>
         <p>
           <a href="#" 
             onclick="event.preventDefault(); window.__TAURI__.opener.openUrl('${anime.url}');" 

@@ -403,23 +403,17 @@ button {
   font-size: 1.1em;
 }
 
-
-
-
-
-
 .button-container {
   position: absolute;
   top: 20px;
   left: 20px;
   display: flex;
-  flex-direction: row; /* Stack vertically */
-  gap: 10px; /* Automatic spacing between buttons */
+  flex-direction: row;
+  gap: 10px;
   z-index: 1000;
 }
 
 .button-container button {
-  /* Your button styles here - without position: fixed */
   width: auto;
   border: none;
   padding: 10px 20px;
