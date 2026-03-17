@@ -504,6 +504,100 @@ async function loadAllAnime() {
     await renderList(allResults);
 }
 
+async function getCurrentlyAiringAnime() {
+    const maxPages = 20;
+    let page = 1;
+    let pageLen = 25;
+    let hasNextPage = true;
+    let allPageResults = [];
+    const phrases = await getPhrases();
+
+    while (hasNextPage && page <= maxPages) {
+        try {
+            const response = await fetch(`https://api.jikan.moe/v4/seasons/now?page=${page}`);
+            const data = await response.json();
+
+            const results = data.data || [];
+
+            for (let j = 0; j < results.length; j++) {
+                const anime = results[j];
+                const title = anime.title?.toLowerCase() || '';
+                const englishTitle = anime.title_english?.toLowerCase() || '';
+                let c = 0;
+                for (const phraseUnchanged of phrases) {
+                    const phrase = phraseUnchanged.toLowerCase();
+                    if (title.includes(phrase) || englishTitle.includes(phrase)) c += 1;
+                }
+                const existingAnime = allPageResults.find(a => a.mal_id === anime.mal_id);
+                if (c > 0) {
+                    if (existingAnime) {
+                        existingAnime.count = existingAnime.count + c;
+                    } else {
+                        anime.count = c;
+                        allPageResults.push(anime);
+                    }
+                }
+            }
+
+            hasNextPage = data.pagination?.has_next_page === true;
+
+            if (results.length < pageLen) {
+                hasNextPage = false;
+            }
+
+            page++;
+
+            const currDelay = Math.max(delay - (Date.now() - currTime), 10);
+            await new Promise(resolve => setTimeout(resolve, currDelay));
+            currTime = Date.now();
+
+        } catch (error) {
+            alert(`❌ Error on page ${page}: ${error.message}`);
+            hasNextPage = false;
+        }
+    }
+    return allPageResults;
+}
+
+async function getSingleAnime(animeId) {
+    let allPageResults = [];
+    const phrases = await getPhrases();
+
+    try {
+        const response = await fetch(`https://api.jikan.moe/v4/anime/${animeId}/full`);
+        const data = await response.json();
+
+        const anime = data.data;
+         if (!anime) {
+            alert(`No data found for anime ID: ${animeId}`);
+            return null;
+        }
+        const title = anime.title?.toLowerCase() || '';
+        const englishTitle = anime.title_english?.toLowerCase() || '';
+        let c = 0;
+        for (const phraseUnchanged of phrases) {
+            const phrase = phraseUnchanged.toLowerCase();
+            if (title.includes(phrase) || englishTitle.includes(phrase)) c += 1;
+        }
+        const existingAnime = allPageResults.find(a => a.mal_id === anime.mal_id);
+        if (c > 0) {
+            if (existingAnime) {
+                existingAnime.count = existingAnime.count + c;
+            } else {
+                anime.count = c;
+                allPageResults.push(anime);
+            }
+        }
+
+        const currDelay = Math.max(delay - (Date.now() - currTime), 10);
+        await new Promise(resolve => setTimeout(resolve, currDelay));
+        currTime = Date.now();
+        return anime;
+    } catch (error) {
+        alert(`❌ Error: ${error.message}`);
+    }
+}
+
 async function loadAllAnimeBySeason() {
     if (appLaunched) return;
     appLaunched = true;
@@ -542,9 +636,10 @@ async function loadAllAnimeBySeason() {
             if (t === 0 && year === Number(currSeason.year) && season === currSeason.season) t = 1;
         }
     }
+
     //alert("upcoming");
-    const seasonalAnime = await getSeasonalAnime('upcoming', '');
-    for (const animeA of seasonalAnime) {
+    const upcomingAnime = await getSeasonalAnime('upcoming', '');
+    for (const animeA of upcomingAnime) {
         isIn = false;
         for (const animeB of allResults) {
             if (animeA.mal_id === animeB.mal_id) {
@@ -556,9 +651,25 @@ async function loadAllAnimeBySeason() {
             originalResults.push(animeA);
         }
     }
+
+    const currentAnime = await getCurrentlyAiringAnime();
+    for (const animeA of currentAnime) {
+        isIn = false;
+        for (const animeB of allResults) {
+            if (animeA.mal_id === animeB.mal_id) {
+                isIn = true;
+            }
+        }
+        if (!isIn) {
+            allResults.push(animeA);
+            originalResults.push(animeA);
+        }
+    }
+    
     //alert("All")
     let cacheList = await getCachelist();
     let isInResult = false;
+    let cachedAnimeToAdd;
 
     for (const cachedAnime of cacheList) {
         isInResult = false;
@@ -568,8 +679,24 @@ async function loadAllAnimeBySeason() {
             }
         }
         if (!isInResult) {
-            allResults.push(cachedAnime);
-            originalResults.push(cachedAnime);
+            if (cachedAnime.status === 'Currently Airing'){
+                cachedAnimeToAdd = await getSingleAnime(cachedAnime.mal_id);
+                if (cachedAnimeToAdd) {  // Only add if we got a valid result
+                    cachedAnimeToAdd.count = cachedAnime.count;
+                    allResults.push(cachedAnimeToAdd);
+                    originalResults.push(cachedAnimeToAdd);
+                } 
+                else {
+                    // If fetch failed, add the cached version as fallback
+                    allResults.push(cachedAnime);
+                    originalResults.push(cachedAnime);
+                }
+            }
+            else{
+                cachedAnimeToAdd = cachedAnime;
+                allResults.push(cachedAnimeToAdd);
+                originalResults.push(cachedAnimeToAdd);
+            }
         }
     }
 
@@ -659,7 +786,6 @@ async function renderList(list, preserveOriginal = false) {
     const watchedIds = new Set(watchlist.map(item => item.mal_id));
 
     let tempList = [];
-
     for (let i = 0; i < mapToRender.length; i++) {
         const anime = mapToRender[i];
 
@@ -749,6 +875,7 @@ async function renderList(list, preserveOriginal = false) {
         -->
         ${airDateHtml}
         ${episodesHtml}
+        <p> Count: ${anime.count} </p>
         <p>
           <a href="#" 
             onclick="event.preventDefault(); window.__TAURI__.opener.openUrl('${anime.url}');" 
