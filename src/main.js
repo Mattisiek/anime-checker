@@ -37,10 +37,12 @@ var originalResults = [];
 var currentSearchTerm = '';
 var allResults = [];
 var allResultsRecommendations = [];
-let appLaunched = false;
-let gotRecommendations = false;
-let scrollPosition = 0;
-let currentlyShown = 'anime';
+var appLaunched = false;
+var gotRecommendations = false;
+var scrollPosition = 0;
+var currentlyShown = 'anime';
+var refreshDisabled = true;
+
 
 const container = document.getElementById('anime-container');
 
@@ -98,6 +100,15 @@ async function initFiles() {
 
 await initFiles();
 
+document.addEventListener('keydown', function(event) {
+    if (!refreshDisabled) return;
+    
+    if (event.key === 'F5' || 
+        (event.key === 'r' && (event.ctrlKey || event.metaKey))) {
+        event.preventDefault();
+    }
+});
+
 function showLoading(){
     container.innerHTML = 'Loading...';
 }
@@ -129,6 +140,8 @@ function changeVisibility(vis){
     const hardResetButton = document.getElementById('hard-reset-btn');
     const inputForm = document.getElementById('input-form');
     const counterDisplay = document.getElementById('counter-display');
+    
+    refreshDisabled = vis === 'flex' ? false : true;
 
     changeVisibilitySwitch(vis);
     
@@ -288,9 +301,11 @@ async function addSingleAnime(name) {
                     // alert(title);
 
                     if (existingAnime) {
-                        existingAnime.count = (existingAnime.count || 1) + 1;
+
+                        existingAnime.phrases = existingAnime.phrases || [];
+                        existingAnime.phrases.push(searchTerm);
                     } else {
-                        anime.count = 1;
+                        anime.phrases = [searchTerm];
                         allResults.push(anime);
                         originalResults.push(anime);
                     }
@@ -305,12 +320,11 @@ async function addSingleAnime(name) {
 
             page++;
 
-            if (hasNextPage) {
-                const currDelay = Math.max(delay - (Date.now() - currTime), 10);
-                // alert(currDelay);
-                await new Promise(resolve => setTimeout(resolve, currDelay));
-                currTime = Date.now();
-            }
+            
+            const currDelay = Math.max(delay - (Date.now() - currTime), 10);
+            // alert(currDelay);
+            await new Promise(resolve => setTimeout(resolve, currDelay));
+            currTime = Date.now();
 
         } catch (error) {
             alert(`❌ Error on page ${page}: ${error.message}`);
@@ -354,21 +368,20 @@ async function deleteFromFile(name) {
 
 
         allResults.forEach(anime => {
-            const title = anime.title?.toLowerCase() || '';
-            const englishTitle = anime.title_english?.toLowerCase() || '';
-
-            if (title.includes(searchTerm) || englishTitle.includes(searchTerm)) {
-                let matches = 0;
-                if (title.includes(searchTerm) || englishTitle.includes(searchTerm)) matches++;
-
-                if (anime.count !== undefined) {
-                    anime.count = Math.max(0, anime.count - matches);
+            //*/
+            //if(anime.phrases && anime.phrases !== undefined){ //TODO: delete this
+                //alert(anime.title + " " + anime.phrases);
+                for (let i = 0; i < anime.phrases.length; i++) {
+                    if (anime.phrases[i] === searchTerm) {
+                        anime.phrases.splice(i, 1);
+                        break;
+                    }
                 }
-            }
+            //}
         });
 
-        allResults = allResults.filter(anime => anime.count > 0);
-        originalResults = originalResults.filter(anime => anime.count > 0);
+        allResults = allResults.filter(anime => anime.phrases.length > 0);
+        originalResults = originalResults.filter(anime => anime.phrases.length > 0);
 
 
         writeToCache(allResults);
@@ -416,8 +429,8 @@ function getPreviousSeason(year, seasonPrev) {
     return { year, season };
 }
 
-async function getSeasonalAnime(year, season) {
-    const maxPages = 20;
+async function getSeasonalAnime(searchPhrase) {
+    const maxPages = 50;
     let page = 1;
     let pageLen = 25;
     let hasNextPage = true;
@@ -427,14 +440,7 @@ async function getSeasonalAnime(year, season) {
 
     while (hasNextPage && page <= maxPages) {
         try {
-            let url;
-            if (year === 'upcoming' || year === 'now') {
-                url = `https://api.jikan.moe/v4/seasons/${year}?page=${page}`;
-            }
-            else {
-                url = `https://api.jikan.moe/v4/seasons/${year}/${season}?page=${page}`;
-            }
-            const response = await fetch(url);
+            const response = await fetch(`https://api.jikan.moe/v4/${searchPhrase}page=${page}`);
             const data = await response.json();
 
             const results = data.data || [];
@@ -443,17 +449,21 @@ async function getSeasonalAnime(year, season) {
                 const anime = results[j];
                 const title = anime.title?.toLowerCase() || '';
                 const englishTitle = anime.title_english?.toLowerCase() || '';
+                let currPhrases = [];
                 let c = 0;
                 for (const phraseUnchanged of phrases) {
                     const phrase = phraseUnchanged.toLowerCase();
-                    if (title.includes(phrase) || englishTitle.includes(phrase)) c += 1;
+                    if (title.includes(phrase) || englishTitle.includes(phrase)){
+                        c += 1;
+                        currPhrases.push(phrase);
+                    }
                 }
                 const existingAnime = allPageResults.find(a => a.mal_id === anime.mal_id);
                 if (c > 0) {
                     if (existingAnime) {
-                        existingAnime.count = existingAnime.count + c;
+                        existingAnime.phrases = currPhrases;
                     } else {
-                        anime.count = c;
+                        anime.phrases = currPhrases;
                         allPageResults.push(anime);
                     }
                 }
@@ -480,11 +490,8 @@ async function getSeasonalAnime(year, season) {
 }
 
 async function loadAllAnime() {
-
     showLoading();
-
     changeVisibility('none');
-
     allResults = [];
     var animeTitles = await getPhrases();
 
@@ -502,61 +509,6 @@ async function loadAllAnime() {
     }
     await writeToCache(allResults);
     await renderList(allResults);
-}
-
-async function getCurrentlyAiringAnime() {
-    const maxPages = 20;
-    let page = 1;
-    let pageLen = 25;
-    let hasNextPage = true;
-    let allPageResults = [];
-    const phrases = await getPhrases();
-
-    while (hasNextPage && page <= maxPages) {
-        try {
-            const response = await fetch(`https://api.jikan.moe/v4/seasons/now?page=${page}`);
-            const data = await response.json();
-
-            const results = data.data || [];
-
-            for (let j = 0; j < results.length; j++) {
-                const anime = results[j];
-                const title = anime.title?.toLowerCase() || '';
-                const englishTitle = anime.title_english?.toLowerCase() || '';
-                let c = 0;
-                for (const phraseUnchanged of phrases) {
-                    const phrase = phraseUnchanged.toLowerCase();
-                    if (title.includes(phrase) || englishTitle.includes(phrase)) c += 1;
-                }
-                const existingAnime = allPageResults.find(a => a.mal_id === anime.mal_id);
-                if (c > 0) {
-                    if (existingAnime) {
-                        existingAnime.count = existingAnime.count + c;
-                    } else {
-                        anime.count = c;
-                        allPageResults.push(anime);
-                    }
-                }
-            }
-
-            hasNextPage = data.pagination?.has_next_page === true;
-
-            if (results.length < pageLen) {
-                hasNextPage = false;
-            }
-
-            page++;
-
-            const currDelay = Math.max(delay - (Date.now() - currTime), 10);
-            await new Promise(resolve => setTimeout(resolve, currDelay));
-            currTime = Date.now();
-
-        } catch (error) {
-            alert(`❌ Error on page ${page}: ${error.message}`);
-            hasNextPage = false;
-        }
-    }
-    return allPageResults;
 }
 
 async function getSingleAnime(animeId) {
@@ -582,9 +534,9 @@ async function getSingleAnime(animeId) {
         const existingAnime = allPageResults.find(a => a.mal_id === anime.mal_id);
         if (c > 0) {
             if (existingAnime) {
-                existingAnime.count = existingAnime.count + c;
+                existingAnime.phrases = currPhrases;
             } else {
-                anime.count = c;
+                anime.phrases = currPhrases;
                 allPageResults.push(anime);
             }
         }
@@ -605,6 +557,8 @@ async function loadAllAnimeBySeason() {
     showLoading();
 
     changeVisibility('none');
+    
+    allResultsRecommendations = await loadTopAnime();
 
     const savedSeason = await getSeason();
     const prevSeason = getPreviousSeason(savedSeason[0], savedSeason[1]);
@@ -614,12 +568,13 @@ async function loadAllAnimeBySeason() {
 
     let t = -1;
     let isIn = false;
+    // alert("Start")
     for (let year = Number(prevSeason.year); year <= Number(currSeason.year); year++) {
         for (let season of ['winter', 'spring', 'summer', 'fall']) {
             if (t === -1 && prevSeason.season === season) t = 0;
             if (t === 0) {
                 //alert(year + " " + season);
-                const a = await getSeasonalAnime(year, season);
+                const a = await getSeasonalAnime(`seasons/${year}/${season}?`);
                 for (const animeA of a) {
                     isIn = false;
                     for (const animeB of allResults) {
@@ -636,9 +591,8 @@ async function loadAllAnimeBySeason() {
             if (t === 0 && year === Number(currSeason.year) && season === currSeason.season) t = 1;
         }
     }
-
-    //alert("upcoming");
-    const upcomingAnime = await getSeasonalAnime('upcoming', '');
+    // alert("upcoming");
+    const upcomingAnime = await getSeasonalAnime("seasons/upcoming?");
     for (const animeA of upcomingAnime) {
         isIn = false;
         for (const animeB of allResults) {
@@ -651,8 +605,8 @@ async function loadAllAnimeBySeason() {
             originalResults.push(animeA);
         }
     }
-
-    const currentAnime = await getCurrentlyAiringAnime();
+    // alert("currently airing");
+    const currentAnime = await getSeasonalAnime("anime?status=airing&");
     for (const animeA of currentAnime) {
         isIn = false;
         for (const animeB of allResults) {
@@ -682,7 +636,6 @@ async function loadAllAnimeBySeason() {
             if (cachedAnime.status === 'Currently Airing'){
                 cachedAnimeToAdd = await getSingleAnime(cachedAnime.mal_id);
                 if (cachedAnimeToAdd) {  // Only add if we got a valid result
-                    cachedAnimeToAdd.count = cachedAnime.count;
                     allResults.push(cachedAnimeToAdd);
                     originalResults.push(cachedAnimeToAdd);
                 } 
@@ -704,32 +657,6 @@ async function loadAllAnimeBySeason() {
 
     await writeToCache(allResults);
     await renderList(allResults);
-}
-
-function countDuplicates(animeList) {
-    const uniqueMap = new Map();
-
-    animeList.forEach(anime => {
-        const id = anime.mal_id;
-        if (!uniqueMap.has(id)) {
-            anime.count = anime.count || 1;
-            uniqueMap.set(id, anime);
-        }
-    });
-
-    return Array.from(uniqueMap.values());
-}
-
-function removeDuplicates(animeList) {
-    const uniqueMap = new Map();
-
-    animeList.forEach(anime => {
-        if (!uniqueMap.has(anime.mal_id)) {
-            uniqueMap.set(anime.mal_id, anime);
-        }
-    });
-
-    return Array.from(uniqueMap.values());
 }
 
 function sortByReleaseDate(animeList) {
@@ -762,7 +689,13 @@ function sortByReleaseDate(animeList) {
     });
 }
 
-async function renderList(list, preserveOriginal = false) {
+function sortByScore(animeList) {
+    return [...animeList].sort((a, b) => {
+        return b.score - a.score;
+    });
+}
+
+async function renderList(list, preserveOriginal = false, recomendations = false) {
     if (!preserveOriginal && originalResults.length === 0) {
         originalResults = [...list];
     }
@@ -776,9 +709,8 @@ async function renderList(list, preserveOriginal = false) {
             (anime.title_english && anime.title_english.toLowerCase().includes(term))
         );
     }
-
-    let mapToRender = countDuplicates(listToRender);
-    mapToRender = sortByReleaseDate(mapToRender, 'asc');
+    
+    listToRender = recomendations ? sortByScore(listToRender) : sortByReleaseDate(listToRender);
 
     const watchlist = await getWatchlist();
     const settings = await getSettings();
@@ -786,8 +718,8 @@ async function renderList(list, preserveOriginal = false) {
     const watchedIds = new Set(watchlist.map(item => item.mal_id));
 
     let tempList = [];
-    for (let i = 0; i < mapToRender.length; i++) {
-        const anime = mapToRender[i];
+    for (let i = 0; i < listToRender.length; i++) {
+        const anime = listToRender[i];
 
         if (watchedIds.has(anime.mal_id)) continue;
         if (settings.get(anime.status) === '0') continue;
@@ -797,11 +729,10 @@ async function renderList(list, preserveOriginal = false) {
             continue;
         }
         // else alert(anime.title + " " +  anime.type + " " + settings2.get(anime.type));
-        if (anime.type !== null && settings2.get(typeKey) === undefined) alert("undefined type: " + typeKey + ' in anime: ' + anime.title);
-
-        if (anime.count !== 0) {
-            tempList.push(anime);
+        if (anime.type !== null && settings2.get(typeKey) === undefined){
+            alert("undefined type: " + typeKey + ' in anime: ' + anime.title);
         }
+        tempList.push(anime);
         //alert("Anime count = 0: " + anime.title);
     }
 
@@ -815,15 +746,13 @@ async function renderList(list, preserveOriginal = false) {
 
     for (let i = 0; i < tempList.length; i++) {
         const anime = tempList[i];
-        if (anime.count === 0) {
-            continue;
-        }
 
         let airDateHtml = '';
         let scoreHtml = '';
         let nameHtml = '';
         let typeHtml = '';
         let episodesHtml = '';
+        let buttonHtml = '';
         const airedTab = anime.aired.string.split("to");
         const airedFrom = airedTab[0];
         const airedTo = airedTab[1];
@@ -859,8 +788,20 @@ async function renderList(list, preserveOriginal = false) {
         if (anime.episodes !== null) {
             episodesHtml = `<p>Episodes: ${anime.episodes}</p>`;
         }
-
         else nameHtml = `<h3>${anime.title}</h3> <h3>${anime.title_english}</h3>`;
+
+        if (!recomendations){
+            buttonHtml = `
+                <button 
+                    type="button"
+                    class="add-btn" 
+                    data-id="${anime.mal_id}" 
+                    data-title="${anime.title.replace(/"/g, '&quot;')}" 
+                    data-type="${anime.type}">
+                    I have watched it
+                </button>
+            `
+        }
 
         tempHTMLcontent += `
       <div class="anime-card" style="margin-bottom: 20px; border: 1px solid #ccc; padding: 10px;">
@@ -875,6 +816,7 @@ async function renderList(list, preserveOriginal = false) {
         -->
         ${airDateHtml}
         ${episodesHtml}
+        <p> Phrases: ${anime.phrases}</p>
         <p>
           <a href="#" 
             onclick="event.preventDefault(); window.__TAURI__.opener.openUrl('${anime.url}');" 
@@ -882,14 +824,7 @@ async function renderList(list, preserveOriginal = false) {
             View on MyAnimeList →
           </a>
         </p>
-        <button 
-          type="button"
-          class="add-btn" 
-          data-id="${anime.mal_id}" 
-          data-title="${anime.title.replace(/"/g, '&quot;')}" 
-          data-type="${anime.type}">
-          I have watched it
-        </button>
+        ${buttonHtml}
       </div>
     `;
     }
@@ -1467,7 +1402,7 @@ function initMainSearch() {
 }
 
 async function loadTopAnime() {
-    const maxPages = 20;
+    const maxPages = 10;
     let page = 1;
     let pageLen = 25;
     let hasNextPage = true;
@@ -1482,7 +1417,6 @@ async function loadTopAnime() {
 
             for (let j = 0; j < results.length; j++) {
                 const anime = results[j];
-                anime.count = 1;
                 allPageResults.push(anime);
             }
 
@@ -1513,6 +1447,7 @@ function ShowAnime() {
         if(currentlyShown === 'anime'){
             return;
         }
+        container.innerHTML = ' ';
         changeVisibility('none');
         currentlyShown = 'anime';
         await renderList(allResults);
@@ -1527,12 +1462,7 @@ function ShowRecommendations() {
         if(currentlyShown === 'recommendations'){
             return;
         }
-        changeVisibility('none');
         currentlyShown = 'recommendations';
-        showLoading();
-        if (!gotRecommendations){
-            allResultsRecommendations = await loadTopAnime();
-        }
         let allResultsRecommendationsToRender = [];
         let isIn;
 
@@ -1543,12 +1473,15 @@ function ShowRecommendations() {
                     isIn = true;
                 }
             }
-            if (!isIn) {
+            if (!isIn){
                 allResultsRecommendationsToRender.push(animeA);
             }
         }
+        container.innerHTML = ' ';
         gotRecommendations = true;
-        await renderList(allResultsRecommendationsToRender);
+        changeVisibility('none');
+        container.innerHTML = '';
+        await renderList(allResultsRecommendationsToRender, false, true);
         changeVisibilitySwitch('flex');
     };
 }
@@ -1564,5 +1497,3 @@ if (document.readyState === 'loading') {
 } else {
     initMainSearch();
 }
-
-
