@@ -102,6 +102,15 @@ async function initFiles() {
     }
 }
 
+function pickAttributes(anime) {
+    let animeToAdd = {};
+    const keyElements = ['mal_id', 'title', 'title_english', 'score', 'type', 'status', 'aired', 'episodes', 'phrases', 'images', 'url'];
+    keyElements.forEach(key => {
+        animeToAdd[key] = anime[key];
+    });
+    return animeToAdd;  
+}
+
 await initFiles();
 
 document.addEventListener('keydown', function(event) {
@@ -217,10 +226,9 @@ async function addToWatchlist(anime_id, anime_title, anime_type) {
 
 async function writeToCache(l) {
     try {
-        //await fs.writeTextFile(CACHE_PATH, JSON.stringify(l, ['mal_id', 'title', 'title_english', 'score', 'type', 'status', 'aired', 'episodes', 'count', 'images'], 2));
-        await fs.writeTextFile(CACHE_PATH, JSON.stringify(l, null, 2));
+        await fs.writeTextFile(CACHE_PATH, JSON.stringify(l.map(item => pickAttributes(item)), null, 2));
     } catch (error) {
-        alert('Error adding to cache:', error);
+        alert('Error adding to cache: ' + error);
     }
 }
 
@@ -294,7 +302,7 @@ async function addSingleAnime(name) {
             allPageResults = [...allPageResults, ...results];
 
             for (let j = 0; j < results.length; j++) {
-                const anime = results[j];
+                const anime = pickAttributes(results[j]);
 
                 const title = anime.title?.toLowerCase() || '';
                 //alert(j + ": " + title + " " + anime.mal_id);
@@ -450,7 +458,7 @@ async function getSeasonalAnime(searchPhrase) {
             const results = data.data || [];
 
             for (let j = 0; j < results.length; j++) {
-                const anime = results[j];
+                const anime = pickAttributes(results[j]);
                 // if(anime.mal_id === 55830) alert(anime.title + " " + anime.status + " " + searchPhrase);
                 const title = anime.title?.toLowerCase() || '';
                 const englishTitle = anime.title_english?.toLowerCase() || '';
@@ -522,7 +530,7 @@ async function getSingleAnime(animeId) {
         const response = await fetch(`https://api.jikan.moe/v4/anime/${animeId}/full`);
         const data = await response.json();
 
-        const anime = data.data;
+        const anime = pickAttributes(data.data);
          if (!anime) {
             alert(`No data found for anime ID: ${animeId}`);
             return null;
@@ -728,7 +736,7 @@ async function renderList(list, preserveOriginal = false, recomendations = false
         const anime = listToRender[i];
 
         if (watchedIds.has(anime.mal_id)) continue;
-        if (settings.get(anime.status) === '0') continue;
+        if (settings.get(anime.status) === '0' && !recomendations) continue;
         if (settings.get(anime.status) === undefined) alert("undefined status: " + anime.status);
         const typeKey = anime.type === null ? "null" : anime.type;
         if (settings2.get(typeKey) === '0') {
@@ -822,7 +830,6 @@ async function renderList(list, preserveOriginal = false, recomendations = false
         -->
         ${airDateHtml}
         ${episodesHtml}
-        <p> Phrases: ${anime.phrases}</p>
         <p>
           <a href="#" 
             onclick="event.preventDefault(); window.__TAURI__.opener.openUrl('${anime.url}');" 
@@ -1422,7 +1429,7 @@ async function loadTopAnime() {
             const results = data.data || [];
 
             for (let j = 0; j < results.length; j++) {
-                const anime = results[j];
+                const anime = pickAttributes(results[j]);
                 allPageResults.push(anime);
             }
 
