@@ -54,7 +54,7 @@ jobs:
         shell: bash
         run: |
           echo "untrusted comment: minisign secret key" > "$HOME/minisign.key"
-          printf "${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}" >> "$HOME/minisign.key"
+          echo "${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}" >> "$HOME/minisign.key"
           export TAURI_SIGNING_PRIVATE_KEY="$HOME/minisign.key"
           npm run tauri build -- ${{ matrix.args }}
         env:
