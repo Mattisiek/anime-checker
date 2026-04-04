@@ -30,6 +30,7 @@
       "$APPDATA/**"
     ]
     },
-    "opener:allow-default-urls"
+    "opener:allow-default-urls",
+    "updater:default"
   ]
 }
