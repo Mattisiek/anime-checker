@@ -123,7 +123,7 @@ document.addEventListener('keydown', function(event) {
 });
 
 function showLoading(){
-    container.innerHTML = 'Loading...';
+    container.innerHTML = 'Loading.....';
 }
 
 async function getPhrases() {
