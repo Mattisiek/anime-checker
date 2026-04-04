@@ -51,14 +51,20 @@ jobs:
         run: npm install # change this to npm, pnpm or bun depending on which one you use.
 
       - name: Build App
+        shell: bash
         run: |
-          echo "untrusted comment: minisign secret key" > minisign.key
-          echo "${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}" >> minisign.key
-          export TAURI_SIGNING_PRIVATE_KEY="$(pwd)/minisign.key"
+          echo "untrusted comment: minisign secret key" > "$HOME/minisign.key"
+          echo "${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}" >> "$HOME/minisign.key"
+          export TAURI_SIGNING_PRIVATE_KEY="$HOME/minisign.key"
           npm run tauri build -- ${{ matrix.args }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
+
+      - name: Create Release
+        uses: tauri-apps/tauri-action@dev
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: app-v__VERSION__
           releaseName: 'Anime Checker v__VERSION__'
