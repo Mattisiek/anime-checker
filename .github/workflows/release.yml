@@ -53,7 +53,9 @@ jobs:
       - uses: tauri-apps/tauri-action@dev
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY: |
+            untrusted comment: minisign secret key
+            ${{ secrets.YOUR_ACTUAL_BASE64_STRING_ONLY }}
         with:
           tagName: app-v__VERSION__ # the action automatically replaces \_\_VERSION\_\_ with the app version.
           releaseName: 'Anime Checker v__VERSION__'
