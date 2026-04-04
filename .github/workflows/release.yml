@@ -53,9 +53,8 @@ jobs:
       - name: Build App
         shell: bash
         run: |
-          # Use printf to avoid the trailing newline that causes Symbol 10
-          printf "untrusted comment: minisign secret key\n%s" "${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}" > "$HOME/minisign.key"
-          
+          echo "untrusted comment: minisign secret key" > "$HOME/minisign.key"
+          printf "${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}" >> "$HOME/minisign.key"
           export TAURI_SIGNING_PRIVATE_KEY="$HOME/minisign.key"
           npm run tauri build -- ${{ matrix.args }}
         env:
