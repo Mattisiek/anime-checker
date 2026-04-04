@@ -52,7 +52,7 @@ jobs:
 
       - name: Debug key
         run: |
-          printf '%s' "${{ secrets.TAURI_SIGNING_PRIVATE_KEY_BASE64 }}" | base64 -d > "$HOME/minisign.key"
+          printf '%s' "${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}" | base64 -d > "$HOME/minisign.key"
 
           echo "---- FIRST 3 LINES ----"
           head -3 "$HOME/minisign.key"
@@ -64,7 +64,7 @@ jobs:
         shell: bash
         run: |
           echo "untrusted comment: minisign secret key" > "$HOME/minisign.key"
-          printf '%s' "${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}" | tr -d '\r' >> "$HOME/minisign.key"
+          printf "%s" "${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}" >> "$HOME/minisign.key"
           
           echo "Key first line:"
           head -1 "$HOME/minisign.key"
