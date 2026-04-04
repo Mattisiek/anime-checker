@@ -63,15 +63,17 @@ jobs:
       - name: Build App
         shell: bash
         run: |
-          echo "untrusted comment: minisign secret key" > "$HOME/minisign.key"
-          printf '%s' "${{ secrets.TAURI_SIGNING_PRIVATE_KEY_BASE64 }}" | base64 -d > "$HOME/minisign.key"
-          
-          echo "Key first line:"
-          head -1 "$HOME/minisign.key"
-          
+          # Use a Here-Doc to create the file. This handles the newline perfectly.
+          cat <<EOF > "$HOME/minisign.key"
+          untrusted comment: minisign secret key
+          ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          EOF
+
+          # Point Tauri to the file
           export TAURI_SIGNING_PRIVATE_KEY="$HOME/minisign.key"
           
           npm run tauri build -- ${{ matrix.args }}
+          
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
