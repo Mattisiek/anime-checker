@@ -53,17 +53,10 @@ jobs:
       - name: Build App
         shell: bash
         run: |
-          # Create key file and remove any Windows line endings (\r)
-          echo "${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}" | tr -d '\r' > "$HOME/minisign.key"
+          # Use printf to avoid the trailing newline that causes Symbol 10
+          printf "untrusted comment: minisign secret key\n%s" "${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}" > "$HOME/minisign.key"
           
-          # Verify the key has correct format (optional debugging)
-          echo "Key first line:"
-          head -1 "$HOME/minisign.key"
-          
-          # Export the key path for Tauri
           export TAURI_SIGNING_PRIVATE_KEY="$HOME/minisign.key"
-          
-          # Build the app
           npm run tauri build -- ${{ matrix.args }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
