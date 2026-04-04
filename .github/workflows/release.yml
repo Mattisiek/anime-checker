@@ -72,8 +72,10 @@ jobs:
           
           # 2. Build the app with the variables set directly in the command line
           # This ensures the Tauri process sees the FILE PATH, not the string
-          TAURI_SIGNING_PRIVATE_KEY=\"$(pwd)/signing.key\" \
+          export TAURI_SIGNING_PRIVATE_KEY=$(pwd)/signing.key
+          
           npm run tauri build -- ${{ matrix.args }}
+        
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RAW_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
