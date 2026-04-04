@@ -50,6 +50,16 @@ jobs:
       - name: install frontend dependencies
         run: npm install # change this to npm, pnpm or bun depending on which one you use.
 
+      - name: Debug key
+        run: |
+          echo "${{ secrets.TAURI_SIGNING_PRIVATE_KEY_BASE64 }}" | base64 -d | tr -d '\r' > "$HOME/minisign.key"
+
+          echo "---- FIRST 3 LINES ----"
+          head -3 "$HOME/minisign.key"
+
+          echo "---- SHOW INVISIBLE CHARS ----"
+          cat -A "$HOME/minisign.key"
+
       - name: Build App
         shell: bash
         run: |
