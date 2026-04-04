@@ -54,8 +54,9 @@ jobs:
         uses: tauri-apps/tauri-action@dev
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # We provide ONLY the raw base64 string here
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          # This syntax ($'...') is the magic trick for real newlines in Bash
+          TAURI_SIGNING_PRIVATE_KEY: "untrusted comment: minisign secret key\n${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}"
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: "" 
         with:
           tagName: app-v__VERSION__
           releaseName: 'Anime Checker v__VERSION__'
