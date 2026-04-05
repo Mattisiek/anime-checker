@@ -61,14 +61,18 @@ jobs:
       - name: Build App
         shell: bash
         run: |
-          # Create key file safely (no indentation issues)
-          printf "${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}" > keyfile
+          # Use Python to write the file to avoid shell encoding errors
+          python3 -c "import os;
+          header = 'untrusted comment: minisign secret key\n'
+          key = os.environ.get('MY_SECRET', '').strip()
+          with open('minisign.key', 'w', encoding='utf-8', newline='\n') as f:
+              f.write(header + key)"
 
-          # Export absolute path
-          export TAURI_SIGNING_PRIVATE_KEY="$(pwd)/keyfile"
-          export TAURI_SIGNING_PRIVATE_KEY_PASSWORD=""
-
-          # Build app
+          # Tell Tauri exactly where the file is (Absolute Path)
+          export TAURI_SIGNING_PRIVATE_KEY="$(pwd)/minisign.key"
+          
+          # Run the build
           npm run tauri build -- ${{ matrix.args }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MY_SECRET: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
