@@ -76,31 +76,30 @@ jobs:
       - name: 🔨 Build App
         shell: bash
         run: |
-          # We use Python with a 'byte-write' to ensure the newline is exactly \n
+          # We write in Binary Mode ('wb') to force exact byte placement
           python3 -c "
           import os
-          # Get your raw RW... key
           raw_key = os.environ.get('MY_SECRET', '').strip()
           
-          # Create the two distinct lines
-          line1 = 'untrusted comment: minisign secret key\n'
-          line2 = raw_key
+          # Encode everything to raw bytes
+          header = b'untrusted comment: minisign secret key\n'
+          key_bytes = raw_key.encode('utf-8')
+          # Add one final newline at the very end of the file
+          footer = b'\n'
           
-          # Write as a clean UTF-8 file with NO Windows carriage returns
-          with open('signing.key', 'w', encoding='utf-8', newline='\n') as f:
-              f.write(line1)
-              f.write(line2)
+          with open('signing.key', 'wb') as f:
+              f.write(header)
+              f.write(key_bytes)
+              f.write(footer)
           "
 
-          # --- 🔍 VERIFY ---
-          echo "Checking file lines..."
-          LINE_COUNT=$(wc -l < signing.key | xargs)
-          echo "Line count is: $LINE_COUNT"
+          # --- 🔍 FINAL VERIFICATION ---
+          echo "File Hex Dump (check for 0a newline):"
+          # Look for '0a' (the newline) after 'key' (6b 65 79)
+          xxd -p signing.key | tr -d '\n' | grep -o '6b65790a5257' && echo "✅ Found Newline!" || echo "❌ No Newline found"
           
-          if [ "$LINE_COUNT" -lt 2 ]; then
-            echo "❌ ERROR: File is still only 1 line! Something is wrong with the secret."
-            exit 1
-          fi
+          echo "Total Line Count:"
+          grep -c $'' signing.key
 
           # 2. Set the absolute path
           export TAURI_SIGNING_PRIVATE_KEY="$(pwd)/signing.key"
@@ -110,3 +109,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           MY_SECRET: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          
