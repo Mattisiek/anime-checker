@@ -67,7 +67,6 @@ jobs:
           # We pass the secret, but notice we do NOT create a file.
           # The action will decode the base64 and see the header correctly.
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
         with:
           tagName: app-v__VERSION__
           releaseName: 'Anime Checker v__VERSION__'
