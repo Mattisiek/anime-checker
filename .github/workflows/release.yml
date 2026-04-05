@@ -64,9 +64,10 @@ jobs:
         uses: tauri-apps/tauri-action@dev
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # We pass the RAW string here. The action will handle the 
-          # "untrusted comment" header for us automatically.
+          # We pass the secret, but notice we do NOT create a file.
+          # The action will decode the base64 and see the header correctly.
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
         with:
           tagName: app-v__VERSION__
           releaseName: 'Anime Checker v__VERSION__'
