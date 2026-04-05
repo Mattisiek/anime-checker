@@ -77,31 +77,33 @@ jobs:
 
 
 
-      - name: 🔨 Final Absolute Build
+      - name: 🔨 Final Updater Fix
         shell: bash
         run: |
-          # 1. Write the file to the workspace
+          # 1. Write the file to a clean location
+          # We use a name that has NO SPACES and NO DOTS
           python3 -c "
           import os
-          raw_key = os.environ.get('MY_RAW_SECRET', '').strip()
+          raw_key = os.environ.get('KEY_DATA', '').strip()
           with open('signingkey', 'wb') as f:
               f.write(b'untrusted comment: minisign secret key\n')
               f.write(raw_key.encode('utf-8'))
               f.write(b'\n')
           "
 
-          # 2. Define the ABSOLUTE path
-          # On Mac this will look like /Users/runner/work/repo/repo/signingkey
-          ABS_PATH="${{ github.workspace }}/signingkey"
+          # 2. Get the Absolute Path
+          # This converts 'signingkey' into /Users/runner/work/.../signingkey
+          ABS_PATH=$(pwd)/signingkey
           
-          echo "--- FINAL PATH CHECK ---"
-          echo "Path: $ABS_PATH"
-          echo "First byte of path string: ${ABS_PATH:0:1}" # Should be /
-          echo "------------------------"
-
-          # 3. Export and Build
-          export TAURI_SIGNING_PRIVATE_KEY="$ABS_PATH"
-          npm run tauri build -- ${{ matrix.args }}
+          # 3. SET THE GLOBAL GITHUB ENVIRONMENT
+          # This forces the Updater process to see the PATH, not the TEXT
+          echo "TAURI_SIGNING_PRIVATE_KEY=$ABS_PATH" >> $GITHUB_ENV
+          
+          # 4. RUN THE BUILD
+          # We pass it inline one last time for good measure
+          TAURI_SIGNING_PRIVATE_KEY="$ABS_PATH" npm run tauri build -- ${{ matrix.args }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          MY_RAW_SECRET: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          # IMPORTANT: Do NOT name this TAURI_SIGNING_PRIVATE_KEY here!
+          # Call it something else like KEY_DATA.
+          KEY_DATA: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
