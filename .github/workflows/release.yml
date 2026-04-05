@@ -73,34 +73,38 @@ jobs:
         env:
           MY_SECRET: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
 
-      - name: Build App
+      - name: 🔨 Build App
         shell: bash
         run: |
-          # Use Python to handle the string safely across Windows/Mac/Linux
+          # 1. Create the content and write to a file using Python
           python3 -c "
           import os
-          raw_secret = os.environ.get('MY_SECRET', '').strip()
+          raw_key = os.environ.get('MY_SECRET', '').strip()
+          header = 'untrusted comment: minisign secret key'
+          # This ensures a clean newline (\n) between the header and the RW key
+          final_content = f'{header}\n{raw_key}'
           
-          # Check if the header is already in the secret or if we need to add it
-          if raw_secret.startswith('untrusted comment'):
-              # Secret already has the header
-              final_content = raw_secret
-          else:
-              # Secret is likely just the RW... string, so we add the header
-              final_content = f'untrusted comment: minisign secret key\n{raw_secret}'
-          
-          # Write the file with strict Unix newlines (crucial for Minisign)
-          with open('signingkey', 'w', encoding='utf-8', newline='\n') as f:
+          with open('signing.key', 'w', encoding='utf-8', newline='\n') as f:
               f.write(final_content)
           "
+
+          # --- 🔍 DEBUG FINAL CONTENT ---
+          echo "--- FILE ANATOMY ---"
+          # Count lines: should be exactly 2
+          echo "Line count: $(wc -l < signing.key)"
+          # Check for 'untrusted' (75 6e 74...)
+          echo "Start of file (Hex):"
+          head -c 15 signing.key | xxd -p
+          # Check for the transition from header to RW key
+          # This is where 'Symbol 32' usually hides
+          echo "Middle of file (Hex around newline):"
+          grep -aob "key" signing.key | head -n 1
+          # --- END DEBUG ---
+
+          # 2. Tell Tauri where the file is (Absolute Path)
+          export TAURI_SIGNING_PRIVATE_KEY="$(pwd)/signing.key"
           
-          # Set the absolute path to the file we just created
-          export TAURI_SIGNING_PRIVATE_KEY="$(pwd)/signingkey"
-          
-          # Ensure NO password variable is set at all
-          unset TAURI_SIGNING_PRIVATE_KEY_PASSWORD
-          
-          # Run the build
+          # 3. Build
           npm run tauri build -- ${{ matrix.args }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
