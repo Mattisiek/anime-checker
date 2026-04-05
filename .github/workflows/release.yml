@@ -76,28 +76,31 @@ jobs:
 
 
 
-      - name: 🔨 Sledgehammer Build
+      - name: 🔨 Universal Tauri v2 Build
         shell: bash
         run: |
-          # 1. Create the key file (hiding the space from the shell using Base64)
+          # 1. Create the key file INSIDE src-tauri
+          # Using 'wb' and \n to ensure no Windows \r characters creep in
           python3 -c "
           import os, base64
-          h = base64.b64decode('dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHNlY3JldCBrZXk=').decode('utf-8')
-          k = os.environ.get('SECRET_INPUT', '').strip()
-          with open('signer.key', 'w') as f:
-              f.write(f'{h}\n{k}\n')
+          h = base64.b64decode('dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHNlY3JldCBrZXk=')
+          k = os.environ.get('SECRET_INPUT', '').strip().encode('utf-8')
+          with open('src-tauri/signer.key', 'wb') as f:
+              f.write(h + b'\n')
+              f.write(k + b'\n')
           "
 
-          # 2. Get the absolute path
-          ABS_PATH="$(pwd)/signer.key"
+          # 2. Define the path relative to the PROJECT root
+          # Tauri's Rust core often prefers paths relative to where tauri.conf.json is
+          RELATIVE_PATH="./signer.key"
           
-          # 3. ABSOLUTELY KILL the environment variable to stop the 'poison'
-          unset TAURI_SIGNING_PRIVATE_KEY
+          # 3. Set the environment variable globally for this job
+          echo "TAURI_SIGNING_PRIVATE_KEY=$RELATIVE_PATH" >> $GITHUB_ENV
           
-          # 4. Run the build but INJECT the path directly into the CLI
-          # We use the '--' to pass arguments to the underlying Tauri CLI
-          npm run tauri build -- --updater-key "$ABS_PATH" ${{ matrix.args }}
+          # 4. Build
+          # We don't set the variable inline here; we let the GITHUB_ENV handle it
+          npm run tauri build -- ${{ matrix.args }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Use your new secret name here
+          # Ensure this matches the RENAMED secret in your GitHub Settings
           SECRET_INPUT: ${{ secrets.SIGNING_KEY_RAW }}
