@@ -61,30 +61,11 @@ jobs:
           cat -A "$HOME/minisign.key"
 
       - name: Build and Release
-        shell: bash
-        run: |
-          # Decode your dW5... secret into a real key file
-          echo "${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}" | base64 -d > "$HOME/signing.key"
-          
-          # Strip any potential Windows carriage returns just in case
-          sed -i 's/\r//g' "$HOME/signing.key" || true
-          
-          # Run the tauri-action
-          # We set the env variable to the PATH of the file we just made
-          export TAURI_SIGNING_PRIVATE_KEY="$HOME/signing.key"
-          export TAURI_SIGNING_PRIVATE_KEY_PASSWORD=""
-          
-          # Explicitly call the action's logic via npm/cargo or let the action run
-          # However, the cleanest way to use the 'uses' syntax with a file is:
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Publish Action
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Point the action to the file we created in the previous step
-          TAURI_SIGNING_PRIVATE_KEY: ${{ env.HOME }}/signing.key
+          # We point to a file we're about to create in the 'run' part of the action's lifecycle
+          TAURI_SIGNING_PRIVATE_KEY: ${{ github.workspace }}/signingkey
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
         with:
           tagName: app-v__VERSION__
@@ -93,3 +74,7 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
+          # This 'beforeBuildCommand' runs INSIDE the action before it starts the bundler
+          beforeBuildCommand: |
+            echo "${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}" | base64 -d > "${{ github.workspace }}/signingkey"
+            sed -i 's/\r//g' "${{ github.workspace }}/signingkey" || true
