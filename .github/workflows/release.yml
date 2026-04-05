@@ -76,33 +76,33 @@ jobs:
 
 
 
-      - name: 🔨 Final Polish Build
+      - name: 🔨 Total Isolation Build
         shell: bash
         run: |
-          # 1. THE BLOCKS (Encoded to hide spaces/symbols)
-          H64="dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHNlY3JldCBrZXk="
-          
-          # 2. THE STITCH
+          # 1. Create the key file INSIDE the tauri folder
+          # This is where the bundler process has the highest priority
           python3 -c "
           import os, base64
-          header = base64.b64decode('$H64')
-          key = os.environ.get('K_RAW', '').strip().encode('utf-8')
+          # The H64 trick to hide the space from the shell
+          h_bytes = base64.b64decode('dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHNlY3JldCBrZXk=')
+          k_bytes = os.environ.get('RAW_KEY_DATA', '').strip().encode('utf-8')
           
-          with open('final.key', 'wb') as f:
-              f.write(header + b'\n')
-              f.write(key + b'\n')
+          with open('src-tauri/updater.key', 'wb') as f:
+              f.write(h_bytes + b'\n')
+              f.write(k_bytes + b'\n')
           "
 
-          # 3. GET THE CLEAN PATH
-          # No quotes, no backslashes, just the raw path string
-          ABS_PATH=$(pwd)/final.key
+          # 2. Get the absolute path
+          # We use $(pwd) to ensure it's a full /home/runner/... path
+          ABS_PATH=$(pwd)/src-tauri/updater.key
           
-          # 4. SET THE ENVIRONMENT
+          # 3. Inject it into the GITHUB_ENV so all sub-processes see it
           echo "TAURI_SIGNING_PRIVATE_KEY=$ABS_PATH" >> $GITHUB_ENV
           
-          # 5. RUN THE BUILD
-          # Note: No backslashes around the variable here!
+          # 4. Run build with the variable set INLINE
           TAURI_SIGNING_PRIVATE_KEY=$ABS_PATH npm run tauri build -- ${{ matrix.args }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          K_RAW: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          # CRITICAL: We DO NOT map this to TAURI_SIGNING_PRIVATE_KEY here.
+          # If we do, the updater grabs this raw text instead of our file path.
+          RAW_KEY_DATA: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
