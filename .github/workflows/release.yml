@@ -63,20 +63,21 @@ jobs:
       - name: Build App
         shell: bash
         run: |
-          # We write the secret directly to a file. 
-          # Because the secret now contains the header AND the key, 
-          # we don't have to guess where the newline goes.
-          echo "${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}" > "$HOME/signing.key"
+          # 1. Create a perfectly formatted file in the current directory
+          # We use printf to ensure NO hidden characters or Windows newlines
+          printf "untrusted comment: minisign secret key\n%s" "$MY_RAW_SECRET" > "$GITHUB_WORKSPACE/signing.key"
           
-          # Force Unix line endings just in case Windows runners are used
-          sed -i 's/\r//g' "$HOME/signing.key" || true
-          
-          export TAURI_SIGNING_PRIVATE_KEY="$HOME/signing.key"
-          export TAURI_SIGNING_PRIVATE_KEY_PASSWORD=""
-          
+          # 2. Verify the file exists and is exactly 2 lines (for the logs)
+          echo "File created at: $GITHUB_WORKSPACE/signing.key"
+          wc -l "$GITHUB_WORKSPACE/signing.key"
+
+          # 3. Pass the FILE PATH to the build command
+          # We set the variable ONLY for the build process to avoid conflicts
+          TAURI_SIGNING_PRIVATE_KEY="$GITHUB_WORKSPACE/signing.key" \
           npm run tauri build -- ${{ matrix.args }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MY_RAW_SECRET: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
 
       - name: Create Release
         uses: tauri-apps/tauri-action@dev
