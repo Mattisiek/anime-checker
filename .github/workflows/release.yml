@@ -76,7 +76,7 @@ jobs:
 
 
 
-      - name: 🔨 Final Build Fix
+      - name: 🔨 Sledgehammer Build
         shell: bash
         run: |
           # 1. Create the key file (hiding the space from the shell using Base64)
@@ -88,16 +88,16 @@ jobs:
               f.write(f'{h}\n{k}\n')
           "
 
-          # 2. Set the ABSOLUTE path
-          # Using $(pwd) ensures the first character is / (tells Rust it's a file)
-          export TAURI_SIGNING_PRIVATE_KEY="$(pwd)/signer.key"
+          # 2. Get the absolute path
+          ABS_PATH="$(pwd)/signer.key"
           
-          # 3. Make it global for the Updater process
-          echo "TAURI_SIGNING_PRIVATE_KEY=$(pwd)/signer.key" >> $GITHUB_ENV
+          # 3. ABSOLUTELY KILL the environment variable to stop the 'poison'
+          unset TAURI_SIGNING_PRIVATE_KEY
           
-          # 4. Run the build
-          npm run tauri build -- ${{ matrix.args }}
+          # 4. Run the build but INJECT the path directly into the CLI
+          # We use the '--' to pass arguments to the underlying Tauri CLI
+          npm run tauri build -- --updater-key "$ABS_PATH" ${{ matrix.args }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Use the NEW name you created in Step 1
+          # Use your new secret name here
           SECRET_INPUT: ${{ secrets.SIGNING_KEY_RAW }}
