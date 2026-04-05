@@ -63,22 +63,20 @@ jobs:
       - name: Build App
         shell: bash
         run: |
-          # 1. Create the key file with Python to ensure Unix newlines (\n) on ALL platforms
-          python3 -c "import os; 
-          key = os.environ.get('RAW_KEY', '').strip();
-          with open('signing.key', 'wb') as f:
-              f.write(b'untrusted comment: minisign secret key\n')
-              f.write(key.encode('utf-8'))"
+          # We write the secret directly to a file. 
+          # Because the secret now contains the header AND the key, 
+          # we don't have to guess where the newline goes.
+          echo "${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}" > "$HOME/signing.key"
           
-          # 2. Build the app with the variables set directly in the command line
-          # This ensures the Tauri process sees the FILE PATH, not the string
-          export TAURI_SIGNING_PRIVATE_KEY=$(pwd)/signing.key
+          # Force Unix line endings just in case Windows runners are used
+          sed -i 's/\r//g' "$HOME/signing.key" || true
+          
+          export TAURI_SIGNING_PRIVATE_KEY="$HOME/signing.key"
+          export TAURI_SIGNING_PRIVATE_KEY_PASSWORD=""
           
           npm run tauri build -- ${{ matrix.args }}
-        
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RAW_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
 
       - name: Create Release
         uses: tauri-apps/tauri-action@dev
