@@ -58,18 +58,47 @@ jobs:
 
           echo "First 15 chars (hex):"
           head -c 15 rawkey | od -An -tx1
+      - name: Debug & Validate Secret
+        shell: bash
+        run: |
+          echo "--- SECRET INSPECTION ---"
+          # Get length without printing the actual secret
+          SECRET_LEN=${#MY_SECRET}
+          echo "Total Secret Length: $SECRET_LEN characters"
+          
+          # Show the first 10 characters in Hex to find hidden spaces/newlines
+          # Hex 20 = Space, Hex 0a = Newline, Hex 0d = Carriage Return
+          echo -n "$MY_SECRET" | head -c 10 | xxd -p | sed 's/../& /g'
+          echo "--- END INSPECTION ---"
+        env:
+          MY_SECRET: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+
       - name: Build App
         shell: bash
         run: |
-          # Use Python to write the file to avoid shell encoding errors
-          python3 -c "import os;
-          header = 'untrusted comment: minisign secret key\n'
-          key = os.environ.get('MY_SECRET', '').strip()
-          with open('minisign.key', 'w', encoding='utf-8', newline='\n') as f:
-              f.write(key)"
-
-          # Tell Tauri exactly where the file is (Absolute Path)
-          export TAURI_SIGNING_PRIVATE_KEY="$(pwd)/minisign.key"
+          # Use Python to handle the string safely across Windows/Mac/Linux
+          python3 -c "
+          import os
+          raw_secret = os.environ.get('MY_SECRET', '').strip()
+          
+          # Check if the header is already in the secret or if we need to add it
+          if raw_secret.startswith('untrusted comment'):
+              # Secret already has the header
+              final_content = raw_secret
+          else:
+              # Secret is likely just the RW... string, so we add the header
+              final_content = f'untrusted comment: minisign secret key\n{raw_secret}'
+          
+          # Write the file with strict Unix newlines (crucial for Minisign)
+          with open('signingkey', 'w', encoding='utf-8', newline='\n') as f:
+              f.write(final_content)
+          "
+          
+          # Set the absolute path to the file we just created
+          export TAURI_SIGNING_PRIVATE_KEY="$(pwd)/signingkey"
+          
+          # Ensure NO password variable is set at all
+          unset TAURI_SIGNING_PRIVATE_KEY_PASSWORD
           
           # Run the build
           npm run tauri build -- ${{ matrix.args }}
