@@ -51,7 +51,7 @@ jobs:
         run: npm install # change this to npm, pnpm or bun depending on which one you use.
       - name: Validate key format
         run: |
-          echo "${{ secrets.SIGNING_KEY_RAW }}" > rawkey
+          echo "${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}" > rawkey
 
           echo "Length:"
           wc -c rawkey
@@ -71,7 +71,7 @@ jobs:
           echo -n "$MY_SECRET" | head -c 15 | xxd -p | sed 's/../& /g'
           echo "--- END INSPECTION ---"
         env:
-          MY_SECRET: ${{ secrets.SIGNING_KEY_RAW }}
+          MY_SECRET: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
 
 
 
@@ -95,7 +95,7 @@ jobs:
           RELATIVE_PATH="./signer.key"
           
           # 3. Set the environment variable globally for this job
-          echo "SIGNING_KEY_RAW=$RELATIVE_PATH" >> $GITHUB_ENV
+          echo "TAURI_SIGNING_PRIVATE_KEY=$RELATIVE_PATH" >> $GITHUB_ENV
           
           # 4. Build
           # We don't set the variable inline here; we let the GITHUB_ENV handle it
@@ -103,4 +103,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Ensure this matches the RENAMED secret in your GitHub Settings
-          SECRET_INPUT: ${{ secrets.SIGNING_KEY_RAW }}
+          SECRET_INPUT: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
