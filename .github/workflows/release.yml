@@ -76,45 +76,33 @@ jobs:
 
 
 
-
-      - name: 🔨 Double-Base64 Build
+      - name: 🔨 Final Polish Build
         shell: bash
         run: |
           # 1. THE BLOCKS (Encoded to hide spaces/symbols)
-          # 'dW50cnVzdGVk...' is 'untrusted comment: minisign secret key'
           H64="dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHNlY3JldCBrZXk="
           
-          # Your RW... key from secrets
-          K_RAW="${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}"
-          
-          # 2. THE STITCH (Using Python to safely combine them)
+          # 2. THE STITCH
           python3 -c "
           import os, base64
-          # Decode the header 'block'
-          header = base64.b64decode('$H64'.encode('utf-8'))
-          # Get the raw key 'block'
+          header = base64.b64decode('$H64')
           key = os.environ.get('K_RAW', '').strip().encode('utf-8')
           
-          # Write to final file with a clean newline byte (0x0A)
           with open('final.key', 'wb') as f:
               f.write(header + b'\n')
               f.write(key + b'\n')
           "
 
-          # --- 🔍 CIPHER DEBUG ---
-          echo "--- DOUBLE-BLOCK CHECK ---"
-          echo "Line 1 (Decoded Header): $(head -n 1 final.key)"
-          echo "Total Line Count: $(wc -l < final.key)"
-          echo "File Path: $(pwd)/final.key"
-          echo "-------------------------"
-
-          # 3. SET THE PATH (Use Absolute Path for macOS/Linux)
+          # 3. GET THE CLEAN PATH
+          # No quotes, no backslashes, just the raw path string
           ABS_PATH=$(pwd)/final.key
+          
+          # 4. SET THE ENVIRONMENT
           echo "TAURI_SIGNING_PRIVATE_KEY=$ABS_PATH" >> $GITHUB_ENV
           
-          # 4. RUN THE BUILD
-          # Passing the variable inline is the most aggressive 'override'
-          TAURI_SIGNING_PRIVATE_KEY=\"$ABS_PATH\" npm run tauri build -- ${{ matrix.args }}
+          # 5. RUN THE BUILD
+          # Note: No backslashes around the variable here!
+          TAURI_SIGNING_PRIVATE_KEY=$ABS_PATH npm run tauri build -- ${{ matrix.args }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           K_RAW: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
