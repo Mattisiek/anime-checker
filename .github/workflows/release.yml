@@ -50,28 +50,17 @@ jobs:
       - name: install frontend dependencies
         run: npm install # change this to npm, pnpm or bun depending on which one you use.
 
-      - name: Prepare Signing Key
+      - name: Build App
         shell: bash
         run: |
-          # Decode your dW5... secret into a file with NO hyphens or dots in the name
-          echo "${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}" | base64 -d > signingkey
-          
-          # Clean up any potential Windows carriage returns
-          sed -i 's/\r//g' signingkey || true
-          
-          # Save the ABSOLUTE path to a special GitHub environment file
-          echo "FINAL_KEY_PATH=$(pwd)/signingkey" >> $GITHUB_ENV
+          # Create key file safely (no indentation issues)
+          printf "untrusted comment: minisign secret key\n%s" "${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}" > keyfile
 
-      - name: Build and Release
-        uses: tauri-apps/tauri-action@v0
+          # Export absolute path
+          export TAURI_SIGNING_PRIVATE_KEY="$(pwd)/keyfile"
+          export TAURI_SIGNING_PRIVATE_KEY_PASSWORD=""
+
+          # Build app
+          npm run tauri build -- ${{ matrix.args }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Use the absolute path we just saved
-          TAURI_SIGNING_PRIVATE_KEY: ${{ env.FINAL_KEY_PATH }}
-        with:
-          tagName: app-v__VERSION__
-          releaseName: 'Anime Checker v__VERSION__'
-          releaseBody: 'See the assets to download this version and install.'
-          releaseDraft: true
-          prerelease: false
-          args: ${{ matrix.args }}
