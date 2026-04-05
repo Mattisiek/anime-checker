@@ -49,69 +49,35 @@ jobs:
 
       - name: install frontend dependencies
         run: npm install # change this to npm, pnpm or bun depending on which one you use.
-      - name: Validate key format
-        run: |
-          echo "${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}" > rawkey
 
-          echo "Length:"
-          wc -c rawkey
+        
 
-          echo "First 15 chars (hex):"
-          head -c 15 rawkey | od -An -tx1
-      - name: Debug & Validate Secret
+
+
+      # -----------------------------
+      # 🔐 SIGNING KEY HANDLING (SAFE)
+      # -----------------------------
+      - name: Write signing key safely
         shell: bash
         run: |
-          echo "--- SECRET INSPECTION ---"
-          # Get length without printing the actual secret
-          SECRET_LEN=${#MY_SECRET}
-          echo "Total Secret Length: $SECRET_LEN characters"
-          
-          # Show the first 10 characters in Hex to find hidden spaces/newlines
-          # Hex 20 = Space, Hex 0a = Newline, Hex 0d = Carriage Return
-          echo -n "$MY_SECRET" | head -c 10 | xxd -p | sed 's/../& /g'
-          echo "--- END INSPECTION ---"
-        env:
-          MY_SECRET: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          set -euo pipefail
+          printf "%s" "${TAURI_SIGNING_PRIVATE_KEY}" > /tmp/signingkey
+          chmod 600 /tmp/signingkey
 
-      - name: 🔨 Prepare and Build
-        shell: bash
-        run: |
-          # 1. Write the perfect file to /tmp using Binary Mode
-          python3 -c "
-          import os
-          raw_key = os.environ.get('MY_RAW_SECRET', '').strip()
-          with open('/tmp/signingkey', 'wb') as f:
-              f.write(b'untrusted comment: minisign secret key\n')
-              f.write(raw_key.encode('utf-8'))
-              f.write(b'\n')
-          "
-
-          # --- 🔍 FINAL DEBUG ---
-          echo "--- FINAL SYSTEM CHECK ---"
-          echo "File Path: /tmp/signingkey"
-          
-          # Check Line Count (Should be 2)
-          echo -n "Line Count: "
-          grep -c $'' /tmp/signingkey
-          
-          # Check Byte Size (Should be ~250-252)
-          echo -n "Byte Size: "
+          echo "Key file created at /tmp/signingkey"
+          echo "Byte size:"
           wc -c < /tmp/signingkey
-          
-          # Hex Check for the first 15 bytes
-          echo "First 15 bytes (Hex):"
-          head -c 15 /tmp/signingkey | xxd -p | sed 's/../& /g'
-          
-          # Check if any "ghost" variable exists in the environment
-          echo "Current Env Path: $TAURI_SIGNING_PRIVATE_KEY"
-          echo "------------------------"
 
-          # 2. Force GitHub to set the variable for subsequent steps
-          echo "TAURI_SIGNING_PRIVATE_KEY=/tmp/signingkey" >> $GITHUB_ENV
-          
-          # 3. Build with INLINE variable to force the process to see the path
-          TAURI_SIGNING_PRIVATE_KEY=/tmp/signingkey npm run tauri build -- ${{ matrix.args }}
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+
+      - name: Build Tauri app
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          export TAURI_SIGNING_PRIVATE_KEY=/tmp/signingkey
+
+          npm run tauri build -- ${{ matrix.args }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Keep the secret mapped to a different name to prevent collision
-          MY_RAW_SECRET: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
