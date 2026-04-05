@@ -77,33 +77,45 @@ jobs:
 
 
 
-      - name: 🔨 Final Updater Fix
+      - name: 🔨 Two-Block Build
         shell: bash
         run: |
-          # 1. Write the file to a clean location
-          # We use a name that has NO SPACES and NO DOTS
+          # 1. Define the Blocks
+          # Block A: The Header (contains the spaces)
+          HEADER_BLOCK="untrusted comment: minisign secret key"
+          
+          # Block B: Your Secret (from GitHub Secrets)
+          KEY_BLOCK="${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}"
+          
+          # 2. Stitch them together into a file using a Python "Buffer"
+          # This ensures the newline between them is a real byte, not a string '\n'
           python3 -c "
           import os
-          raw_key = os.environ.get('KEY_DATA', '').strip()
-          with open('signingkey', 'wb') as f:
-              f.write(b'untrusted comment: minisign secret key\n')
-              f.write(raw_key.encode('utf-8'))
-              f.write(b'\n')
-          "
-
-          # 2. Get the Absolute Path
-          # This converts 'signingkey' into /Users/runner/work/.../signingkey
-          ABS_PATH=$(pwd)/signingkey
+          h = os.environ.get('H_BLOCK')
+          k = os.environ.get('K_BLOCK').strip()
           
-          # 3. SET THE GLOBAL GITHUB ENVIRONMENT
-          # This forces the Updater process to see the PATH, not the TEXT
+          # Write the blocks to a file
+          with open('final.key', 'wb') as f:
+              f.write(h.encode('utf-8') + b'\n')
+              f.write(k.encode('utf-8') + b'\n')
+          "
+          
+          # --- 🔍 TWO-BLOCK DEBUG ---
+          echo "--- STITCH CHECK ---"
+          echo "Line 1 (Header): $(sed -n '1p' final.key)"
+          echo "Line 2 (Key Start): $(sed -n '2p' final.key | cut -c 1-5)..."
+          echo "Total Lines: $(wc -l < final.key)"
+          echo "--------------------"
+
+          # 3. Get the Absolute Path (Required for macOS/Linux)
+          ABS_PATH=$(pwd)/final.key
+          
+          # 4. Set the Global Path
           echo "TAURI_SIGNING_PRIVATE_KEY=$ABS_PATH" >> $GITHUB_ENV
           
-          # 4. RUN THE BUILD
-          # We pass it inline one last time for good measure
+          # 5. Execute Build
           TAURI_SIGNING_PRIVATE_KEY="$ABS_PATH" npm run tauri build -- ${{ matrix.args }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # IMPORTANT: Do NOT name this TAURI_SIGNING_PRIVATE_KEY here!
-          # Call it something else like KEY_DATA.
-          KEY_DATA: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          H_BLOCK: "untrusted comment: minisign secret key"
+          K_BLOCK: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
