@@ -73,11 +73,10 @@ jobs:
         env:
           MY_SECRET: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
 
-      - name: 🔨 Build App
+      - name: 🔨 Prepare and Build
         shell: bash
         run: |
-          # 1. Write the secret to a file using Python
-          # Using MY_RAW_SECRET to avoid collision with the Tauri environment variable
+          # 1. Write the perfect file to /tmp using Binary Mode
           python3 -c "
           import os
           raw_key = os.environ.get('MY_RAW_SECRET', '').strip()
@@ -87,22 +86,32 @@ jobs:
               f.write(b'\n')
           "
 
-          # --- 🔍 DEBUG SECTION ---
-          echo "--- FILE INSPECTION ---"
-          echo "Path: /tmp/signingkey"
-          echo "First 15 bytes (Hex):"
-          # 75 6e 74 72 75 73 74 65 64 20 63 6f 6d 6d 65
-          # (translates to 'untrusted comme')
-          head -c 15 /tmp/signingkey | xxd -p | sed 's/../& /g'
-          echo "--- END INSPECTION ---"
-
-          # 2. Set the Tauri variable to the ABSOLUTE FILE PATH
-          export TAURI_SIGNING_PRIVATE_KEY="/tmp/signingkey"
+          # --- 🔍 FINAL DEBUG ---
+          echo "--- FINAL SYSTEM CHECK ---"
+          echo "File Path: /tmp/signingkey"
           
-          # 3. Build
-          npm run tauri build -- ${{ matrix.args }}
+          # Check Line Count (Should be 2)
+          echo -n "Line Count: "
+          grep -c $'' /tmp/signingkey
+          
+          # Check Byte Size (Should be ~250-252)
+          echo -n "Byte Size: "
+          wc -c < /tmp/signingkey
+          
+          # Hex Check for the first 15 bytes
+          echo "First 15 bytes (Hex):"
+          head -c 15 /tmp/signingkey | xxd -p | sed 's/../& /g'
+          
+          # Check if any "ghost" variable exists in the environment
+          echo "Current Env Path: $TAURI_SIGNING_PRIVATE_KEY"
+          echo "------------------------"
+
+          # 2. Force GitHub to set the variable for subsequent steps
+          echo "TAURI_SIGNING_PRIVATE_KEY=/tmp/signingkey" >> $GITHUB_ENV
+          
+          # 3. Build with INLINE variable to force the process to see the path
+          TAURI_SIGNING_PRIVATE_KEY=/tmp/signingkey npm run tauri build -- ${{ matrix.args }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Map the secret to a unique name
+          # Keep the secret mapped to a different name to prevent collision
           MY_RAW_SECRET: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          
