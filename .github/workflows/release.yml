@@ -56,8 +56,8 @@ jobs:
           echo "Length:"
           wc -c rawkey
 
-          echo "First 10 chars (hex):"
-          head -c 10 rawkey | od -An -tx1
+          echo "First 15 chars (hex):"
+          head -c 15 rawkey | od -An -tx1
       - name: Build App
         shell: bash
         run: |
@@ -66,7 +66,7 @@ jobs:
           header = 'untrusted comment: minisign secret key\n'
           key = os.environ.get('MY_SECRET', '').strip()
           with open('minisign.key', 'w', encoding='utf-8', newline='\n') as f:
-              f.write(header + key)"
+              f.write(key)"
 
           # Tell Tauri exactly where the file is (Absolute Path)
           export TAURI_SIGNING_PRIVATE_KEY="$(pwd)/minisign.key"
