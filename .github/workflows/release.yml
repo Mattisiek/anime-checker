@@ -68,7 +68,7 @@ jobs:
           
           # Show the first 10 characters in Hex to find hidden spaces/newlines
           # Hex 20 = Space, Hex 0a = Newline, Hex 0d = Carriage Return
-          echo -n "$MY_SECRET" | head -c 10 | xxd -p | sed 's/../& /g'
+          echo -n "$MY_SECRET" | head -c 15 | xxd -p | sed 's/../& /g'
           echo "--- END INSPECTION ---"
         env:
           MY_SECRET: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -76,15 +76,11 @@ jobs:
 
 
 
-          
-      - name: 🔨 Final Stand Build
+
+      - name: 🔨 Final Absolute Build
         shell: bash
         run: |
-          # 1. Clear any 'ghost' variables from GitHub's default environment
-          unset TAURI_SIGNING_PRIVATE_KEY
-          
-          # 2. Write the file to the CURRENT folder (No /tmp)
-          # We name it 'signingkey' (no extension, no dots, no hyphens)
+          # 1. Write the file to the workspace
           python3 -c "
           import os
           raw_key = os.environ.get('MY_RAW_SECRET', '').strip()
@@ -94,20 +90,18 @@ jobs:
               f.write(b'\n')
           "
 
-          # --- 🔍 DEBUG CHECK ---
-          echo "--- LOCAL FILE CHECK ---"
-          echo "Line Count: $(grep -c $'' signingkey)"
-          echo "First 15 bytes: $(head -c 15 signingkey | xxd -p)"
-          # This should show './signingkey'
-          echo "Target Path: ./signingkey"
+          # 2. Define the ABSOLUTE path
+          # On Mac this will look like /Users/runner/work/repo/repo/signingkey
+          ABS_PATH="${{ github.workspace }}/signingkey"
+          
+          echo "--- FINAL PATH CHECK ---"
+          echo "Path: $ABS_PATH"
+          echo "First byte of path string: ${ABS_PATH:0:1}" # Should be /
           echo "------------------------"
 
-          # 3. Use the LOCAL path with the ./ prefix
-          # We pass it twice: once to the environment and once directly to the command
-          export TAURI_SIGNING_PRIVATE_KEY="./signingkey"
-          
-          TAURI_SIGNING_PRIVATE_KEY="./signingkey" npm run tauri build -- ${{ matrix.args }}
+          # 3. Export and Build
+          export TAURI_SIGNING_PRIVATE_KEY="$ABS_PATH"
+          npm run tauri build -- ${{ matrix.args }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Keep the secret mapped to a different name to avoid collision
           MY_RAW_SECRET: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
