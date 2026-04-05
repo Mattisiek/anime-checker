@@ -76,32 +76,33 @@ jobs:
       - name: 🔨 Build App
         shell: bash
         run: |
-          # 1. Create the content and write to a file using Python
+          # We use Python with a 'byte-write' to ensure the newline is exactly \n
           python3 -c "
           import os
+          # Get your raw RW... key
           raw_key = os.environ.get('MY_SECRET', '').strip()
-          header = 'untrusted comment: minisign secret key'
-          # This ensures a clean newline (\n) between the header and the RW key
-          final_content = f'{header}\n{raw_key}'
           
+          # Create the two distinct lines
+          line1 = 'untrusted comment: minisign secret key\n'
+          line2 = raw_key
+          
+          # Write as a clean UTF-8 file with NO Windows carriage returns
           with open('signing.key', 'w', encoding='utf-8', newline='\n') as f:
-              f.write(final_content)
+              f.write(line1)
+              f.write(line2)
           "
 
-          # --- 🔍 DEBUG FINAL CONTENT ---
-          echo "--- FILE ANATOMY ---"
-          # Count lines: should be exactly 2
-          echo "Line count: $(wc -l < signing.key)"
-          # Check for 'untrusted' (75 6e 74...)
-          echo "Start of file (Hex):"
-          head -c 15 signing.key | xxd -p
-          # Check for the transition from header to RW key
-          # This is where 'Symbol 32' usually hides
-          echo "Middle of file (Hex around newline):"
-          grep -aob "key" signing.key | head -n 1
-          # --- END DEBUG ---
+          # --- 🔍 VERIFY ---
+          echo "Checking file lines..."
+          LINE_COUNT=$(wc -l < signing.key | xargs)
+          echo "Line count is: $LINE_COUNT"
+          
+          if [ "$LINE_COUNT" -lt 2 ]; then
+            echo "❌ ERROR: File is still only 1 line! Something is wrong with the secret."
+            exit 1
+          fi
 
-          # 2. Tell Tauri where the file is (Absolute Path)
+          # 2. Set the absolute path
           export TAURI_SIGNING_PRIVATE_KEY="$(pwd)/signing.key"
           
           # 3. Build
