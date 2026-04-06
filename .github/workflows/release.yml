@@ -102,5 +102,5 @@ jobs:
           npm run tauri build -- ${{ matrix.args }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Ensure this matches the RENAMED secret in your GitHub Settings
+          # Ensure this matches the RENAMED secret in your GitHub Setting
           SECRET_INPUT: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
