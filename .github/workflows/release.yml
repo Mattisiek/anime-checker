@@ -1,11 +1,15 @@
 name: 'publish'
 
 on:
+  schedule:
+    # This runs at 00:00 UTC every day
+    - cron: '0 0 * * *'
   push:
     branches:
       - main
     tags:
       - 'v*'
+  workflow_dispatch: # Allows you to run it manually for testing
 
 # This workflow will trigger on each push to the `release` branch to create or update a GitHub release, build your app, and upload the artifacts to the release.
 
@@ -49,58 +53,22 @@ jobs:
 
       - name: install frontend dependencies
         run: npm install # change this to npm, pnpm or bun depending on which one you use.
-      - name: Validate key format
-        run: |
-          echo "${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}" > rawkey
 
-          echo "Length:"
-          wc -c rawkey
-
-          echo "First 15 chars (hex):"
-          head -c 15 rawkey | od -An -tx1
-      - name: Debug & Validate Secret
-        shell: bash
-        run: |
-          echo "--- SECRET INSPECTION ---"
-          # Get length without printing the actual secret
-          SECRET_LEN=${#MY_SECRET}
-          echo "Total Secret Length: $SECRET_LEN characters"
-          
-          # Show the first 10 characters in Hex to find hidden spaces/newlines
-          # Hex 20 = Space, Hex 0a = Newline, Hex 0d = Carriage Return
-          echo -n "$MY_SECRET" | head -c 15 | xxd -p | sed 's/../& /g'
-          echo "--- END INSPECTION ---"
+      # Add your private key as a file
+      - name: Add private key
         env:
-          MY_SECRET: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+        run: echo "$TAURI_PRIVATE_KEY" > tauri.key
 
-
-
-
-      - name: 🔨 Universal Tauri v2 Build
-        shell: bash
-        run: |
-          # 1. Create the key file INSIDE src-tauri
-          # Using 'wb' and \n to ensure no Windows \r characters creep in
-          python3 -c "
-          import os, base64
-          h = base64.b64decode('dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHNlY3JldCBrZXk=')
-          k = os.environ.get('SECRET_INPUT', '').strip().encode('utf-8')
-          with open('src-tauri/signer.key', 'wb') as f:
-              f.write(h + b'\n')
-              f.write(k + b'\n')
-          "
-
-          # 2. Define the path relative to the PROJECT root
-          # Tauri's Rust core often prefers paths relative to where tauri.conf.json is
-          RELATIVE_PATH="./signer.key"
-          
-          # 3. Set the environment variable globally for this job
-          echo "TAURI_SIGNING_PRIVATE_KEY=$RELATIVE_PATH" >> $GITHUB_ENV
-          
-          # 4. Build
-          # We don't set the variable inline here; we let the GITHUB_ENV handle it
-          npm run tauri build -- ${{ matrix.args }}
+      - uses: tauri-apps/tauri-action@dev
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Ensure this matches the RENAMED secret in your GitHub Setting
-          SECRET_INPUT: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+          TAURI_KEY_PASSWORD: ""
+        with:
+          tagName: app-v__VERSION__ # the action automatically replaces \_\_VERSION\_\_ with the app version.
+          releaseName: 'App v__VERSION__'
+          releaseBody: 'See the assets to download this version and install.'
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.args }}
