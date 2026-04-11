@@ -35,14 +35,6 @@
   "plugins": {
     "shell": {
       "open": true
-    },
-    "updater": {
-      "active": true,
-      "endpoints": [
-        "https://github.com/Mattisiek/anime-checker/releases/latest/download/latest.json"
-      ],
-      "dialog": true,
-      "pubkey": "RWQhAzkFXEoWjpWv/TGAQKKy+smUJTMz1Fa1mJSZFgqhafCJavbl/uNX"
     }
   }
 }
