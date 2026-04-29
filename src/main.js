@@ -4,6 +4,177 @@ const { open } = window.__TAURI__.opener;
 const { appDataDir, join } = window.__TAURI__.path;
 const { mkdir } = window.__TAURI__.fs;
 const { getCurrentWebview } = window.__TAURI__.webview;
+const { readTextFile } = window.__TAURI__.fs;
+const { resolveResource } = window.__TAURI__.path;
+
+import { loadPyodide } from "https://cdn.jsdelivr.net/pyodide/v0.26.0/full/pyodide.mjs";
+
+let pyodideInstance = null;
+let notebookCache = null;
+var modelList = [];
+var modelCacheList = [];
+
+async function initMLModel() {
+    if (pyodideInstance) return pyodideInstance;
+
+    try {
+        console.log("Initializing ML Engine...");
+        pyodideInstance = await loadPyodide({
+            stdout: () => {},
+            stderr: (msg) => console.warn("Pyodide Warning:", msg)
+        });
+
+        await pyodideInstance.loadPackage(["micropip", "setuptools", "pandas"]);
+        const micropip = pyodideInstance.pyimport("micropip");
+        await micropip.install("mlxtend==0.22.0");
+
+        await pyodideInstance.runPythonAsync(`
+            import sys, warnings, os, json, pandas as pd, time, numpy as np
+            from pathlib import Path
+            from types import ModuleType
+            from sklearn.metrics.pairwise import cosine_similarity
+            from sklearn.neighbors import NearestNeighbors
+            warnings.filterwarnings("ignore")
+
+            if 'distutils' not in sys.modules:
+                d = ModuleType('distutils'); v = ModuleType('distutils.version')
+                class LooseVersion:
+                    def __init__(self, vstring): self.vstring = vstring
+                    def __lt__(self, other): return False
+                    def __ge__(self, other): return True
+                v.LooseVersion = LooseVersion; d.version = v
+                sys.modules['distutils'] = d; sys.modules['distutils.version'] = v
+        `);
+
+        // Cache'owanie danych stałych (anime_df.csv i notebook)
+        const csvPath = await resolveResource('resources/anime_df.csv');
+        const csvContent = await readTextFile(csvPath);
+        try {
+            pyodideInstance.FS.stat('anime_df.csv');
+            // Jeśli nie wywali błędu, plik istnieje - nie nadpisuj
+        } catch (e) {
+            pyodideInstance.FS.writeFile('anime_df.csv', csvContent, { encoding: 'utf8' });
+        }
+
+        await pyodideInstance.runPythonAsync(`
+            df = pd.read_csv('anime_df.csv')
+            if len(df.columns) > 0:
+                df.rename(columns={df.columns[0]: 'usernames'}, inplace=True)
+            print("DataFrame loaded and column renamed.")
+            df = df.set_index(df.columns[0])
+            df = df.astype(float)
+        `);
+
+        const modelPath = await resolveResource('resources/model.ipynb');
+        notebookCache = JSON.parse(await readTextFile(modelPath));
+
+        for (const cell of notebookCache.cells) {
+            if (cell.cell_type === 'code') {
+                await pyodideInstance.loadPackagesFromImports(cell.source.join(''));
+            }
+        }
+
+        console.log("ML Engine Ready.");
+        return pyodideInstance;
+    } catch (err) {
+        console.error("Initialization Failed:", err);
+        throw err;
+    }
+}
+
+async function runRecommendations() {
+    try {
+        const pyodide = await initMLModel(); // Upewnia się, że silnik działa
+
+        // 1. Odczyt aktualnej watchlisty (zawsze świeża)
+        const appDataDir = await ensureAppDataDir(); 
+        const fullWatchlistPath = await path.join(appDataDir, 'watchlist.json');
+        const watchlistContent = await fs.readTextFile(fullWatchlistPath);
+        
+        pyodide.globals.set("RAW_WATCHLIST_JSON", watchlistContent);
+        pyodide.globals.set("WATCHLIST_PATH_STR", fullWatchlistPath.replace(/\\/g, '/'));
+
+        await pyodide.runPythonAsync(`
+vfs_path = Path('/home/pyodide/default_app')
+vfs_path.mkdir(parents=True, exist_ok=True)
+vfs_file_path = vfs_path / 'watchlist.json'
+watchlist_path = str(vfs_file_path)
+
+with open(vfs_file_path, 'w', encoding='utf-8') as f:
+    f.write(RAW_WATCHLIST_JSON)
+os.environ['APPDATA'] = '/home/pyodide'
+config = {'identifier': 'default_app'}
+        `);
+
+        // 2. Wykonanie komórek notebooka
+        for (const [index, cell] of notebookCache.cells.entries()) {
+            if (index <= 4) continue; 
+            if (cell.cell_type === 'code') {
+                let code = cell.source.join('');
+                if (code.includes('tauri.conf.json')) {
+                    code = "config = {'identifier': 'default_app'}";
+                }
+                code = code.replace("pd.read_csv('anime_df.csv')", "pd.read_csv('/home/pyodide/anime_df.csv')");
+                
+                await pyodide.runPythonAsync(code);
+            }
+        }
+
+        // 3. Ekstrakcja wyników
+        const jsonResult = await pyodide.runPythonAsync(`
+recs = globals().get('recommendations', {})
+output = recs.to_dict() if hasattr(recs, 'to_dict') else (recs if recs else {})
+json.dumps({str(k): float(v) for k, v in output.items()})
+        `);
+
+        // 4. Wyświetlenie wyników
+        await handleResultDisplay(jsonResult);
+
+    } catch (err) {
+        console.error("Execution Error:", err);
+        alert("Error running model: " + err.message);
+    }
+}
+
+async function handleResultDisplay(jsonResult) {
+
+    if (!jsonResult || jsonResult === "{}") {
+        alert("No recommendations found.");
+        return;
+    }
+    modelList = [];
+    const finalObj = JSON.parse(jsonResult);
+    let resultString = "Top Recommendations:\n";
+    for (const [animeKey, score] of Object.entries(finalObj)) {
+        const parts = animeKey.split('_');
+
+        // Pierwsza część (ID)
+        const id = Number(parts[0]);
+        //alert(id);
+        //alert(typeof id);
+
+        // Reszta (Nazwa) - usuwamy ID i łączymy resztę
+        const name = parts.slice(1).join('_');
+        resultString += `• ${name} - Score: ${score.toFixed(2)}\n`;
+        //alert("A");
+        const found = modelCacheList.find(item => item.mal_id === id);
+
+        if (found) {
+            modelList.push(found);
+        }
+        else{
+            const currAnime = await getSingleAnime(id);
+            if (currAnime && currAnime.mal_id) {
+                modelList.push(currAnime);
+                modelCacheList.push(currAnime);
+            }
+        }
+        //console.log("asdjhasdhjasdhj");
+        //console.log(modelList);
+    }
+
+    //alert(resultString);
+}
 
 getCurrentWebview().clearAllBrowsingData();
 
@@ -572,8 +743,12 @@ async function loadAllAnimeBySeason() {
     showLoading();
 
     changeVisibility('none');
+
+    //await loadAndRunModel();
+    await initMLModel();
+    await runRecommendations();
     
-    allResultsRecommendations = await loadTopAnime();
+    // allResultsRecommendations = await loadTopAnime();
 
     const savedSeason = await getSeason();
     const prevSeason = getPreviousSeason(savedSeason[0], savedSeason[1]);
@@ -714,6 +889,7 @@ async function renderList(list, preserveOriginal = false, recomendations = false
     if (!preserveOriginal && originalResults.length === 0) {
         originalResults = [...list];
     }
+    //alert(1);
 
     let listToRender = list;
 
@@ -724,12 +900,14 @@ async function renderList(list, preserveOriginal = false, recomendations = false
             (anime.title_english && anime.title_english.toLowerCase().includes(term))
         );
     }
+    //alert(2);
     
     listToRender = recomendations ? sortByScore(listToRender) : sortByReleaseDate(listToRender);
     const watchlist = await getWatchlist();
     const settings = await getSettings();
     const settings2 = await getSettings2();
     const watchedIds = new Set(watchlist.map(item => item.mal_id));
+    //alert(3);
 
     let tempList = [];
     for (let i = 0; i < listToRender.length; i++) {
@@ -749,14 +927,17 @@ async function renderList(list, preserveOriginal = false, recomendations = false
         tempList.push(anime);
         //alert("Anime count = 0: " + anime.title);
     }
+    //alert(4);
     
     const counterDisplay = document.getElementById('counter-display');
     if (counterDisplay) {
         counterDisplay.textContent = `Number of anime: ${tempList.length}`;
     }
+    //alert(5);
     
     container.innerHTML = '';
     let tempHTMLcontent = '';
+    //alert(6);
 
     for (let i = 0; i < tempList.length; i++) {
         const anime = tempList[i];
@@ -1470,31 +1651,24 @@ function ShowAnime() {
 
 function ShowRecommendations() {
     const btn = document.getElementById('show-recommendations');
+    const searchInput = document.getElementById('main-search');
 
     btn.onclick = async () => {
         if(currentlyShown === 'recommendations'){
             return;
         }
         currentlyShown = 'recommendations';
-        let allResultsRecommendationsToRender = [];
-        let isIn;
-
-        for (const animeA of allResultsRecommendations) {
-            isIn = false;
-            for (const animeB of allResults) {
-                if (animeA.mal_id === animeB.mal_id) {
-                    isIn = true;
-                }
-            }
-            if (!isIn){
-                allResultsRecommendationsToRender.push(animeA);
-            }
-        }
-        container.innerHTML = ' ';
+        searchInput.value = '';
+        currentSearchTerm = '';
+        container.innerHTML = '';
         gotRecommendations = true;
         changeVisibility('none');
-        container.innerHTML = '';
-        await renderList(allResultsRecommendationsToRender, false, true);
+        await runRecommendations();
+        //console.log(modelList)
+        //for (const elem of modelList) alert(elem.mal_id);
+        //container.innerHTML = '';
+        await renderList(modelList, false, true);
+        //console.log("SDSFSDFSDF", document.getElementById('anime-container').innerHTML);
         changeVisibilitySwitch('flex');
     };
 }
