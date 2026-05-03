@@ -430,3 +430,11 @@ button {
 .button-container i {
   font-size: 1.1em;
 }
+
+#radio-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 30px;
+    justify-content: center;
+    padding: 10px;
+}

@@ -5,7 +5,7 @@
     <link rel="stylesheet" href="styles.css" />
     <meta http-equiv="Content-Security-Policy" content="
   default-src 'self'; 
-  script-src 'self' 'unsafe-eval' https://cdn.jsdelivr.net; 
+  script-src 'self' 'unsafe-eval' 'unsafe-inline' https://cdn.jsdelivr.net; 
   style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; 
   connect-src 'self' 
     ipc.localhost 
@@ -103,6 +103,21 @@
         <div class="modal-actions">
           <button type="button" id="popup-cancel3" class="cancel-btn">Cancel</button>
           <button type="button" id="popup-add-selected3" class="add-selected-btn">Change settings</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="rating-popup-modal" class="modal-overlay">
+      <div class="modal-content">
+        <h2 class="modal-title">Rank</h2>
+
+        <div id="radio-list" class="checkbox-list">
+          <div class="loading-message">Loading scores...</div>
+        </div>
+                
+        <div class="modal-actions">
+          <button type="button" id="popup-cancel4" class="cancel-btn">Cancel</button>
+          <button type="button" id="popup-rank" class="add-selected-btn">Rank</button>
         </div>
       </div>
     </div>

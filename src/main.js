@@ -19,17 +19,20 @@ async function initMLModel() {
 
     try {
         console.log("Initializing ML Engine...");
+        /*
         pyodideInstance = await loadPyodide({
             stdout: () => {},
             stderr: (msg) => console.warn("Pyodide Warning:", msg)
         });
+        */
+        pyodideInstance = await loadPyodide();
 
         await pyodideInstance.loadPackage(["micropip", "setuptools", "pandas"]);
         const micropip = pyodideInstance.pyimport("micropip");
         await micropip.install("mlxtend==0.22.0");
 
         await pyodideInstance.runPythonAsync(`
-            import sys, warnings, os, json, pandas as pd, time, numpy as np
+            import sys, warnings, os, json, pandas as pd, time, numpy as np, math
             from pathlib import Path
             from types import ModuleType
             from sklearn.metrics.pairwise import cosine_similarity
@@ -91,15 +94,25 @@ async function runRecommendations() {
         const fullWatchlistPath = await path.join(appDataDir, 'watchlist.json');
         const watchlistContent = await fs.readTextFile(fullWatchlistPath);
         
+        const fullNotWatchlistPath = await path.join(appDataDir, 'notwatchlist.json');
+        const notwatchlistContent = await fs.readTextFile(fullNotWatchlistPath);
+        
         pyodide.globals.set("RAW_WATCHLIST_JSON", watchlistContent);
         pyodide.globals.set("WATCHLIST_PATH_STR", fullWatchlistPath.replace(/\\/g, '/'));
+        
+        pyodide.globals.set("RAW_NOTWATCHLIST_JSON", notwatchlistContent);
+        pyodide.globals.set("NOTWATCHLIST_PATH_STR", fullNotWatchlistPath.replace(/\\/g, '/'));
 
         await pyodide.runPythonAsync(`
 vfs_path = Path('/home/pyodide/default_app')
 vfs_path.mkdir(parents=True, exist_ok=True)
 vfs_file_path = vfs_path / 'watchlist.json'
 watchlist_path = str(vfs_file_path)
+n_vfs_file_path = vfs_path / 'notwatchlist.json'
+notwatchlist_path = str(n_vfs_file_path)
 
+with open(n_vfs_file_path, 'w', encoding='utf-8') as f:
+    f.write(RAW_NOTWATCHLIST_JSON)
 with open(vfs_file_path, 'w', encoding='utf-8') as f:
     f.write(RAW_WATCHLIST_JSON)
 os.environ['APPDATA'] = '/home/pyodide'
@@ -197,6 +210,7 @@ async function ensureAppDataDir() {
 const appDataPath = await ensureAppDataDir();
 
 const WATCHLIST_PATH = await join(appDataPath, 'watchlist.json');
+const NOTWATCHLIST_PATH = await join(appDataPath, 'notwatchlist.json');
 const PHRASES_PATH = await join(appDataPath, 'phrases.txt');
 const SETTINGS_PATH_AIR = await join(appDataPath, 'settings.txt');
 const SETTINGS_PATH_TYPE = await join(appDataPath, 'settings2.txt');
@@ -227,6 +241,12 @@ async function initFiles() {
             await fs.readTextFile(WATCHLIST_PATH);
         } catch {
             await fs.writeTextFile(WATCHLIST_PATH, '[]');
+        }
+
+        try {
+            await fs.readTextFile(NOTWATCHLIST_PATH);
+        } catch {
+            await fs.writeTextFile(NOTWATCHLIST_PATH, '[]');
         }
 
         try {
@@ -343,6 +363,11 @@ async function getWatchlist() {
     return JSON.parse(content);
 }
 
+async function getNotWatchlist() {
+    const content = await fs.readTextFile(NOTWATCHLIST_PATH);
+    return JSON.parse(content);
+}
+
 async function getCachelist() {
     const content = await fs.readTextFile(CACHE_PATH);
     return JSON.parse(content);
@@ -372,7 +397,7 @@ async function getSettings2() {
     return M;
 }
 
-async function addToWatchlist(anime_id, anime_title, anime_type) {
+async function addToWatchlist(anime_id, anime_title, anime_type, anime_score) {
     try {
         const watchlist = await getWatchlist();
 
@@ -383,6 +408,7 @@ async function addToWatchlist(anime_id, anime_title, anime_type) {
                 mal_id: anime_id,
                 title: anime_title,
                 type: anime_type,
+                score: anime_score,
             });
 
             await fs.writeTextFile(WATCHLIST_PATH, JSON.stringify(watchlist, null, 2));
@@ -391,6 +417,29 @@ async function addToWatchlist(anime_id, anime_title, anime_type) {
         return false;
     } catch (error) {
         console.error('Error adding to watchlist:', error);
+        return false;
+    }
+}
+
+async function addToNotWatchlist(anime_id, anime_title, anime_type) {
+    try {
+        const notwatchlist = await getNotWatchlist();
+
+        const exists = notwatchlist.some(item => item.mal_id === anime_id);
+
+        if (!exists) {
+            notwatchlist.push({
+                mal_id: anime_id,
+                title: anime_title,
+                type: anime_type,
+            });
+
+            await fs.writeTextFile(NOTWATCHLIST_PATH, JSON.stringify(notwatchlist, null, 2));
+            return true;
+        }
+        return false;
+    } catch (error) {
+        console.error('Error adding to notwatchlist:', error);
         return false;
     }
 }
@@ -431,12 +480,41 @@ async function removeFromWatchlist(anime_id) {
     }
 }
 
+async function removeFromNotWatchlist(anime_id) {
+    try {
+        const notwatchlist = await getNotWatchlist();
+
+        const exists = notwatchlist.some(item => item.mal_id === anime_id);
+
+        if (exists) {
+            const updatedNotWatchlist = notwatchlist.filter(item => item.mal_id !== anime_id);
+
+            await fs.writeTextFile(NOTWATCHLIST_PATH, JSON.stringify(updatedNotWatchlist, null, 2));
+            return true;
+        }
+        return false;
+    } catch (error) {
+        console.error('Error removing from notwatchlist:', error);
+        return false;
+    }
+}
+
 async function isInWatchlist(mal_id) {
     try {
         const watchlist = await getWatchlist();
         return watchlist.some(item => item.mal_id === mal_id);
     } catch (error) {
         console.error('Error checking watchlist:', error);
+        return false;
+    }
+}
+
+async function isInNotWatchlist(mal_id) {
+    try {
+        const notwatchlist = await getNotWatchlist();
+        return notwatchlist.some(item => item.mal_id === mal_id);
+    } catch (error) {
+        console.error('Error checking notwatchlist:', error);
         return false;
     }
 }
@@ -516,6 +594,173 @@ async function addSingleAnime(name) {
         if (currentRes === 0) break;
     }
     return allPageResults;
+}
+
+async function renderList(list, preserveOriginal = false, recomendations = false) {
+    if (!preserveOriginal && originalResults.length === 0) {
+        originalResults = [...list];
+    }
+    //alert(1);
+
+    let listToRender = list;
+
+    if (currentSearchTerm && currentSearchTerm.trim() !== '') {
+        const term = currentSearchTerm.toLowerCase().trim();
+        listToRender = listToRender.filter(anime =>
+            (anime.title && anime.title.toLowerCase().includes(term)) ||
+            (anime.title_english && anime.title_english.toLowerCase().includes(term))
+        );
+    }
+    //alert(2);
+    
+    listToRender = recomendations ? sortByScore(listToRender) : sortByReleaseDate(listToRender);
+    const watchlist = await getWatchlist();
+    const notwatchlist = await getNotWatchlist();
+    const settings = await getSettings();
+    const settings2 = await getSettings2();
+    const watchedIds = new Set(watchlist.map(item => item.mal_id));
+    const watchedIds2 = new Set(notwatchlist.map(item => item.mal_id));
+    const watchedIdsWithNoScore = new Set(
+    watchlist
+        .filter(item => item.score === undefined || item.score === null)
+        .map(item => item.mal_id)
+);
+    //alert(3);
+
+    let tempList = [];
+    for (let i = 0; i < listToRender.length; i++) {
+        const anime = listToRender[i];
+
+        
+        if (watchedIds.has(anime.mal_id) && watchedIdsWithNoScore.has(anime.mal_id)){
+            ;
+            //await removeFromWatchlist(anime.mal_id);
+            //watchedIds.delete(anime.mal_id);
+        }        
+
+        if (watchedIds.has(anime.mal_id)) continue;
+        if (watchedIds2.has(anime.mal_id)) continue;
+        if (settings.get(anime.status) === '0' && !recomendations) continue;
+        if (settings.get(anime.status) === undefined) alert("undefined status: " + anime.status);
+        const typeKey = anime.type === null ? "null" : anime.type;
+        if (settings2.get(typeKey) === '0') {
+            continue;
+        }
+        // else alert(anime.title + " " +  anime.type + " " + settings2.get(anime.type));
+        if (anime.type !== null && settings2.get(typeKey) === undefined){
+            alert("undefined type: " + typeKey + ' in anime: ' + anime.title);
+        }
+        tempList.push(anime);
+        //alert("Anime count = 0: " + anime.title);
+    }
+    //alert(4);
+    
+    const counterDisplay = document.getElementById('counter-display');
+    if (counterDisplay) {
+        counterDisplay.textContent = `Number of anime: ${tempList.length}`;
+    }
+    //alert(5);
+    
+    container.innerHTML = '';
+    let tempHTMLcontent = '';
+    //alert(6);
+
+    for (let i = 0; i < tempList.length; i++) {
+        const anime = tempList[i];
+
+        let airDateHtml = '';
+        let scoreHtml = '';
+        let nameHtml = '';
+        let typeHtml = '';
+        let episodesHtml = '';
+        let buttonHtml = '';
+        let buttonHtml2 = '';
+        const airedTab = anime.aired.string.split("to");
+        const airedFrom = airedTab[0];
+        const airedTo = airedTab[1];
+
+        if (anime.status === "Not yet aired" && anime.aired.from && anime.aired.to) {
+            airDateHtml = `<p>Supposed first air: ${airedFrom}</p>
+                     <p>Supposed last air: ${airedTo}</p>`;
+        }
+        if (anime.status === "Not yet aired" && anime.aired.from) {
+            airDateHtml = `<p>Supposed first air: ${airedFrom}</p>`;
+        }
+        else if (anime.status === "Not yet aired") airDateHtml = ``;
+
+        else if (anime.aired?.to) {
+            airDateHtml = `<p>First air: ${airedFrom}</p><p>Last air: ${airedTo}</p>`;
+        } else {
+            airDateHtml = `<p>Air: ${airedFrom}</p>`;
+        }
+
+        if (anime.score !== null) {
+            scoreHtml = `<p>Score: ${anime.score}</p>`;
+        }
+
+        if (anime.type !== null) {
+            typeHtml = `<p>Type: ${anime.type}</p>`;
+        }
+
+        if (anime.title_english === null || anime.title_english === anime.title) {
+            nameHtml = `<h3>${anime.title}</h3>`;
+        }
+        else nameHtml = `<h3>${anime.title}</h3><h3>${anime.title_english}</h3>`;
+
+        if (anime.episodes !== null) {
+            episodesHtml = `<p>Episodes: ${anime.episodes}</p>`;
+        }
+        else nameHtml = `<h3>${anime.title}</h3> <h3>${anime.title_english}</h3>`;
+
+        if (!recomendations){
+            buttonHtml = `
+                <button 
+                    type="button"
+                    class="add-btn" 
+                    data-id="${anime.mal_id}" 
+                    data-title="${anime.title.replace(/"/g, '&quot;')}" 
+                    data-type="${anime.type}">
+                    I have watched it
+                </button>
+            `;
+            buttonHtml2 = `
+                <button 
+                    type="button"
+                    class="add-btn2" 
+                    data-id="${anime.mal_id}" 
+                    data-title="${anime.title.replace(/"/g, '&quot;')}" 
+                    data-type="${anime.type}">
+                    Dont show me
+                </button>
+            `
+        }
+
+        tempHTMLcontent += `
+      <div class="anime-card" style="margin-bottom: 20px; border: 1px solid #ccc; padding: 10px;">
+        <img src="${anime.images.jpg.image_url}" alt="${anime.title}" width="100">
+        ${nameHtml}
+        ${scoreHtml}
+        <p>Status: ${anime.status}</p>
+        ${typeHtml}
+        <!-- Link section 
+        <p>First Air: ${anime.aired?.from ? new Date(anime.aired.from).toLocaleDateString() : 'Unknown'}</p>
+        <p>Last Air: ${anime.aired?.to ? new Date(anime.aired.to).toLocaleDateString() : 'Unknown'}</p>
+        -->
+        ${airDateHtml}
+        ${episodesHtml}
+        <p>
+          <a href="#" 
+            onclick="event.preventDefault(); window.__TAURI__.opener.openUrl('${anime.url}');" 
+            style="color: #4CAF50; cursor: pointer; text-decoration: underline;">
+            View on MyAnimeList →
+          </a>
+        </p>
+        ${buttonHtml}
+        ${buttonHtml2}
+      </div>
+    `;
+    }
+    container.innerHTML = tempHTMLcontent;
 }
 
 async function insertIntoFile(name) {
@@ -744,7 +989,6 @@ async function loadAllAnimeBySeason() {
 
     changeVisibility('none');
 
-    //await loadAndRunModel();
     await initMLModel();
     await runRecommendations();
     
@@ -755,6 +999,9 @@ async function loadAllAnimeBySeason() {
     prevSeason.year = savedSeason[0];
     prevSeason.season = savedSeason[1];
     const currSeason = getCurrentMALSeason();
+    if (currSeason.year !== savedSeason[0] || currSeason.season !== savedSeason[1]){
+        await fs.writeTextFile(SEASON_PATH, currSeason.year + "\n" + currSeason.season);
+    }    
 
     let t = -1;
     let isIn = false;
@@ -885,144 +1132,78 @@ function sortByScore(animeList) {
     });
 }
 
-async function renderList(list, preserveOriginal = false, recomendations = false) {
-    if (!preserveOriginal && originalResults.length === 0) {
-        originalResults = [...list];
-    }
-    //alert(1);
 
-    let listToRender = list;
+async function rankAnime(id, title, type) {
+    return new Promise((resolve) => {
+        const popup = document.getElementById('rating-popup-modal');
+        const cancelBtn = document.getElementById('popup-cancel4');
+        const addButton = document.getElementById('popup-rank');
+        const radioList = document.getElementById('radio-list');
 
-    if (currentSearchTerm && currentSearchTerm.trim() !== '') {
-        const term = currentSearchTerm.toLowerCase().trim();
-        listToRender = listToRender.filter(anime =>
-            (anime.title && anime.title.toLowerCase().includes(term)) ||
-            (anime.title_english && anime.title_english.toLowerCase().includes(term))
-        );
-    }
-    //alert(2);
-    
-    listToRender = recomendations ? sortByScore(listToRender) : sortByReleaseDate(listToRender);
-    const watchlist = await getWatchlist();
-    const settings = await getSettings();
-    const settings2 = await getSettings2();
-    const watchedIds = new Set(watchlist.map(item => item.mal_id));
-    //alert(3);
+        let score = -1;
 
-    let tempList = [];
-    for (let i = 0; i < listToRender.length; i++) {
-        const anime = listToRender[i];
-
-        if (watchedIds.has(anime.mal_id)) continue;
-        if (settings.get(anime.status) === '0' && !recomendations) continue;
-        if (settings.get(anime.status) === undefined) alert("undefined status: " + anime.status);
-        const typeKey = anime.type === null ? "null" : anime.type;
-        if (settings2.get(typeKey) === '0') {
-            continue;
-        }
-        // else alert(anime.title + " " +  anime.type + " " + settings2.get(anime.type));
-        if (anime.type !== null && settings2.get(typeKey) === undefined){
-            alert("undefined type: " + typeKey + ' in anime: ' + anime.title);
-        }
-        tempList.push(anime);
-        //alert("Anime count = 0: " + anime.title);
-    }
-    //alert(4);
-    
-    const counterDisplay = document.getElementById('counter-display');
-    if (counterDisplay) {
-        counterDisplay.textContent = `Number of anime: ${tempList.length}`;
-    }
-    //alert(5);
-    
-    container.innerHTML = '';
-    let tempHTMLcontent = '';
-    //alert(6);
-
-    for (let i = 0; i < tempList.length; i++) {
-        const anime = tempList[i];
-
-        let airDateHtml = '';
-        let scoreHtml = '';
-        let nameHtml = '';
-        let typeHtml = '';
-        let episodesHtml = '';
-        let buttonHtml = '';
-        const airedTab = anime.aired.string.split("to");
-        const airedFrom = airedTab[0];
-        const airedTo = airedTab[1];
-
-        if (anime.status === "Not yet aired" && anime.aired.from && anime.aired.to) {
-            airDateHtml = `<p>Supposed first air: ${airedFrom}</p>
-                     <p>Supposed last air: ${airedTo}</p>`;
-        }
-        if (anime.status === "Not yet aired" && anime.aired.from) {
-            airDateHtml = `<p>Supposed first air: ${airedFrom}</p>`;
-        }
-        else if (anime.status === "Not yet aired") airDateHtml = ``;
-
-        else if (anime.aired?.to) {
-            airDateHtml = `<p>First air: ${airedFrom}</p><p>Last air: ${airedTo}</p>`;
-        } else {
-            airDateHtml = `<p>Air: ${airedFrom}</p>`;
+        popup.style.display = 'flex';
+        renderRadioList();
+        
+        function hidePopup(successValue) {
+            popup.style.display = 'none';
+            
+            //cancelBtn.replaceWith(cancelBtn.cloneNode(true));
+            //addSelectedBtn.replaceWith(addSelectedBtn.cloneNode(true));
+            
+            resolve(successValue);
         }
 
-        if (anime.score !== null) {
-            scoreHtml = `<p>Score: ${anime.score}</p>`;
+        function renderRadioList() {
+            let html = '';
+            for (let i = 1; i <= 10; i++) {
+                html += `
+                <div style="margin-bottom: 8px; padding: 5px; border-bottom: 1px solid #eee;">
+                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                        <input type="radio" name="anime-score-group" value="${i}" style="width: 18px; height: 18px;">
+                        <div style="flex-grow: 1;">
+                            <div style="font-weight: bold; color: #333;">${i}</div>
+                        </div>
+                    </label>
+                </div>`;
+            }
+            radioList.innerHTML = html;
+
+            radioList.querySelectorAll('input[name="anime-score-group"]').forEach(radio => {
+                radio.addEventListener('change', (e) => {
+                    score = parseInt(e.target.value, 10);
+                });
+            });
         }
 
-        if (anime.type !== null) {
-            typeHtml = `<p>Type: ${anime.type}</p>`;
-        }
+        const newCancelBtn = document.getElementById('popup-cancel4');
 
-        if (anime.title_english === null || anime.title_english === anime.title) {
-            nameHtml = `<h3>${anime.title}</h3>`;
-        }
-        else nameHtml = `<h3>${anime.title}</h3><h3>${anime.title_english}</h3>`;
+        cancelBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            hidePopup(false);
+        });
 
-        if (anime.episodes !== null) {
-            episodesHtml = `<p>Episodes: ${anime.episodes}</p>`;
-        }
-        else nameHtml = `<h3>${anime.title}</h3> <h3>${anime.title_english}</h3>`;
+        addButton.addEventListener('click', async (e) => {
+            e.preventDefault();
+            if (score !== -1) {
+                try {
+                    // If you have a function to save the data:
+                    await addToWatchlist(id, title, type, score);
+                    //console.log(`Saved: ${title} with score ${score}`);
+                    hidePopup(true);
+                } catch (err) {
+                    console.error("Save failed:", err);
+                    alert("Could not save rating.");
+                    
+                }
+            }
+        });
 
-        if (!recomendations){
-            buttonHtml = `
-                <button 
-                    type="button"
-                    class="add-btn" 
-                    data-id="${anime.mal_id}" 
-                    data-title="${anime.title.replace(/"/g, '&quot;')}" 
-                    data-type="${anime.type}">
-                    I have watched it
-                </button>
-            `
-        }
-
-        tempHTMLcontent += `
-      <div class="anime-card" style="margin-bottom: 20px; border: 1px solid #ccc; padding: 10px;">
-        <img src="${anime.images.jpg.image_url}" alt="${anime.title}" width="100">
-        ${nameHtml}
-        ${scoreHtml}
-        <p>Status: ${anime.status}</p>
-        ${typeHtml}
-        <!-- Link section 
-        <p>First Air: ${anime.aired?.from ? new Date(anime.aired.from).toLocaleDateString() : 'Unknown'}</p>
-        <p>Last Air: ${anime.aired?.to ? new Date(anime.aired.to).toLocaleDateString() : 'Unknown'}</p>
-        -->
-        ${airDateHtml}
-        ${episodesHtml}
-        <p>
-          <a href="#" 
-            onclick="event.preventDefault(); window.__TAURI__.opener.openUrl('${anime.url}');" 
-            style="color: #4CAF50; cursor: pointer; text-decoration: underline;">
-            View on MyAnimeList →
-          </a>
-        </p>
-        ${buttonHtml}
-      </div>
-    `;
-    }
-    container.innerHTML = tempHTMLcontent;
+        // Close on background click
+        popup.onclick = (e) => {
+            if (e.target === popup) hidePopup(false);
+        };
+    });
 }
 
 loadAllAnimeBySeason();
@@ -1055,7 +1236,7 @@ container.addEventListener('click', async (e) => {
     btn.disabled = true;
     btn.textContent = 'Adding...';
 
-    const success = await addToWatchlist(id, title, type);
+    const success = await rankAnime(id, title, type);
 
     if (success) {
         card.style.transition = 'opacity 0.3s';
@@ -1077,7 +1258,55 @@ container.addEventListener('click', async (e) => {
     } else {
         btn.disabled = false;
         btn.textContent = 'I have watched it';
-        alert('This anime is already in your watchlist!');
+    }
+});
+
+container.addEventListener('click', async (e) => {
+    const linkEl = e.target.closest('.external-link');
+    if (linkEl) {
+        const url = linkEl.getAttribute('data-url');
+        await open(url);
+        return;
+    }
+
+    const btn = e.target.closest('.add-btn2');
+    if (!btn) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    const currentScroll = window.scrollY;
+
+    const id = parseInt(btn.getAttribute('data-id'));
+    const title = btn.getAttribute('data-title');
+    const type = btn.getAttribute('data-type');
+    const card = btn.closest('.anime-card');
+
+    btn.disabled = true;
+    btn.textContent = 'Adding...';
+
+    const success = await addToNotWatchlist(id, title, type);
+
+    if (success) {
+        card.style.transition = 'opacity 0.3s';
+        card.style.opacity = '0';
+
+        setTimeout(() => {
+            card.remove();
+            const counterDisplay = document.getElementById('counter-display');
+            if (counterDisplay) {
+                const fullText = counterDisplay.textContent;
+
+                const numberMatch = fullText.match(/\d+/);
+                if (numberMatch) {
+                    counterDisplay.textContent = `Number of anime: ${parseInt(numberMatch[0]) - 1}`;
+                }
+            }
+            window.scrollTo(0, currentScroll);
+        }, 300);
+    } else {
+        btn.disabled = false;
+        btn.textContent = 'I have watched it';
     }
 });
 
@@ -1124,12 +1353,15 @@ function initPopup() {
         const watchlistCheck = allResults.map(async (anime) => {
             const inWatchlist = await isInWatchlist(anime.mal_id);
             const notinWatchlist = !inWatchlist;
-            return { anime, notinWatchlist };
+            const inNotWatchlist = await isInNotWatchlist(anime.mal_id);
+            const notinNotWatchlist = !inNotWatchlist;
+            const toRender = notinWatchlist && notinNotWatchlist;
+            return { anime, toRender};
         });
 
         Promise.all(watchlistCheck).then(results => {
             allAnimeItems = results
-                .filter(r => !r.notinWatchlist)
+                .filter(r => !r.toRender)
                 .map(r => r.anime);
 
             filteredItems = [...allAnimeItems];
@@ -1198,8 +1430,10 @@ function initPopup() {
 
         for (const id of selectedItems) {
             const anime = allAnimeItems.find(a => a.mal_id === id);
+            const isInWatchListOrNotWatchList = await isInWatchlist(anime.mal_id);
             if (anime) {
-                await removeFromWatchlist(anime.mal_id);
+                if (isInWatchListOrNotWatchList) await removeFromWatchlist(anime.mal_id);
+                else await removeFromNotWatchlist(anime.mal_id);
             }
         }
 
