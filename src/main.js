@@ -19,20 +19,20 @@ async function initMLModel() {
 
     try {
         console.log("Initializing ML Engine...");
-        /*
+        //*
         pyodideInstance = await loadPyodide({
             stdout: () => {},
             stderr: (msg) => console.warn("Pyodide Warning:", msg)
         });
-        */
-        pyodideInstance = await loadPyodide();
+        //*/
+        //pyodideInstance = await loadPyodide();
 
-        await pyodideInstance.loadPackage(["micropip", "setuptools", "pandas"]);
+        await pyodideInstance.loadPackage(["micropip", "setuptools", "pandas", "requests"]);
         const micropip = pyodideInstance.pyimport("micropip");
         await micropip.install("mlxtend==0.22.0");
 
         await pyodideInstance.runPythonAsync(`
-            import sys, warnings, os, json, pandas as pd, time, numpy as np, math
+            import sys, warnings, os, json, pandas as pd, time, numpy as np, math, requests
             from pathlib import Path
             from types import ModuleType
             from sklearn.metrics.pairwise import cosine_similarity
@@ -231,6 +231,8 @@ var gotRecommendations = false;
 var scrollPosition = 0;
 var currentlyShown = 'anime';
 var refreshDisabled = true;
+var watchlist;
+var notwatchlist;
 
 
 const container = document.getElementById('anime-container');
@@ -301,8 +303,6 @@ function pickAttributes(anime) {
     });
     return animeToAdd;  
 }
-
-await initFiles();
 
 document.addEventListener('keydown', function(event) {
     if (!refreshDisabled) return;
@@ -399,8 +399,6 @@ async function getSettings2() {
 
 async function addToWatchlist(anime_id, anime_title, anime_type, anime_score) {
     try {
-        const watchlist = await getWatchlist();
-
         const exists = watchlist.some(item => item.mal_id === anime_id);
 
         if (!exists) {
@@ -423,8 +421,6 @@ async function addToWatchlist(anime_id, anime_title, anime_type, anime_score) {
 
 async function addToNotWatchlist(anime_id, anime_title, anime_type) {
     try {
-        const notwatchlist = await getNotWatchlist();
-
         const exists = notwatchlist.some(item => item.mal_id === anime_id);
 
         if (!exists) {
@@ -463,14 +459,13 @@ async function getSeason() {
 
 async function removeFromWatchlist(anime_id) {
     try {
-        const watchlist = await getWatchlist();
-
         const exists = watchlist.some(item => item.mal_id === anime_id);
 
         if (exists) {
             const updatedWatchlist = watchlist.filter(item => item.mal_id !== anime_id);
 
             await fs.writeTextFile(WATCHLIST_PATH, JSON.stringify(updatedWatchlist, null, 2));
+            watchlist = updatedWatchlist;
             return true;
         }
         return false;
@@ -482,14 +477,13 @@ async function removeFromWatchlist(anime_id) {
 
 async function removeFromNotWatchlist(anime_id) {
     try {
-        const notwatchlist = await getNotWatchlist();
-
         const exists = notwatchlist.some(item => item.mal_id === anime_id);
 
         if (exists) {
             const updatedNotWatchlist = notwatchlist.filter(item => item.mal_id !== anime_id);
 
             await fs.writeTextFile(NOTWATCHLIST_PATH, JSON.stringify(updatedNotWatchlist, null, 2));
+            notwatchlist = updatedNotWatchlist;
             return true;
         }
         return false;
@@ -501,7 +495,6 @@ async function removeFromNotWatchlist(anime_id) {
 
 async function isInWatchlist(mal_id) {
     try {
-        const watchlist = await getWatchlist();
         return watchlist.some(item => item.mal_id === mal_id);
     } catch (error) {
         console.error('Error checking watchlist:', error);
@@ -511,7 +504,6 @@ async function isInWatchlist(mal_id) {
 
 async function isInNotWatchlist(mal_id) {
     try {
-        const notwatchlist = await getNotWatchlist();
         return notwatchlist.some(item => item.mal_id === mal_id);
     } catch (error) {
         console.error('Error checking notwatchlist:', error);
@@ -614,17 +606,17 @@ async function renderList(list, preserveOriginal = false, recomendations = false
     //alert(2);
     
     listToRender = recomendations ? sortByScore(listToRender) : sortByReleaseDate(listToRender);
-    const watchlist = await getWatchlist();
-    const notwatchlist = await getNotWatchlist();
+    //const watchlist = await getWatchlist();
+    //const notwatchlist = await getNotWatchlist();
     const settings = await getSettings();
     const settings2 = await getSettings2();
     const watchedIds = new Set(watchlist.map(item => item.mal_id));
     const watchedIds2 = new Set(notwatchlist.map(item => item.mal_id));
     const watchedIdsWithNoScore = new Set(
-    watchlist
-        .filter(item => item.score === undefined || item.score === null)
-        .map(item => item.mal_id)
-);
+        watchlist
+            .filter(item => item.score === undefined || item.score === null)
+            .map(item => item.mal_id)
+    );
     //alert(3);
 
     let tempList = [];
@@ -633,22 +625,23 @@ async function renderList(list, preserveOriginal = false, recomendations = false
 
         
         if (watchedIds.has(anime.mal_id) && watchedIdsWithNoScore.has(anime.mal_id)){
-            ;
-            //await removeFromWatchlist(anime.mal_id);
-            //watchedIds.delete(anime.mal_id);
+            await removeFromWatchlist(anime.mal_id);
+            watchedIds.delete(anime.mal_id);
         }        
 
         if (watchedIds.has(anime.mal_id)) continue;
         if (watchedIds2.has(anime.mal_id)) continue;
-        if (settings.get(anime.status) === '0' && !recomendations) continue;
-        if (settings.get(anime.status) === undefined) alert("undefined status: " + anime.status);
-        const typeKey = anime.type === null ? "null" : anime.type;
-        if (settings2.get(typeKey) === '0') {
-            continue;
-        }
-        // else alert(anime.title + " " +  anime.type + " " + settings2.get(anime.type));
-        if (anime.type !== null && settings2.get(typeKey) === undefined){
-            alert("undefined type: " + typeKey + ' in anime: ' + anime.title);
+        if (!recomendations){
+            if (settings.get(anime.status) === '0') continue;
+            if (settings.get(anime.status) === undefined) alert("undefined status: " + anime.status);
+            const typeKey = anime.type === null ? "null" : anime.type;
+            if (settings2.get(typeKey) === '0') {
+                continue;
+            }
+            // else alert(anime.title + " " +  anime.type + " " + settings2.get(anime.type));
+            if (anime.type !== null && settings2.get(typeKey) === undefined){
+                alert("undefined type: " + typeKey + ' in anime: ' + anime.title);
+            }
         }
         tempList.push(anime);
         //alert("Anime count = 0: " + anime.title);
@@ -723,17 +716,17 @@ async function renderList(list, preserveOriginal = false, recomendations = false
                     I have watched it
                 </button>
             `;
-            buttonHtml2 = `
-                <button 
-                    type="button"
-                    class="add-btn2" 
-                    data-id="${anime.mal_id}" 
-                    data-title="${anime.title.replace(/"/g, '&quot;')}" 
-                    data-type="${anime.type}">
-                    Dont show me
-                </button>
-            `
         }
+        buttonHtml2 = `
+            <button 
+                type="button"
+                class="add-btn2" 
+                data-id="${anime.mal_id}" 
+                data-title="${anime.title.replace(/"/g, '&quot;')}" 
+                data-type="${anime.type}">
+                Dont show me
+            </button>
+        `
 
         tempHTMLcontent += `
       <div class="anime-card" style="margin-bottom: 20px; border: 1px solid #ccc; padding: 10px;">
@@ -989,6 +982,10 @@ async function loadAllAnimeBySeason() {
 
     changeVisibility('none');
 
+    await initFiles();
+    watchlist = await getWatchlist();
+    notwatchlist = await getNotWatchlist();
+
     await initMLModel();
     await runRecommendations();
     
@@ -1131,7 +1128,6 @@ function sortByScore(animeList) {
         return b.score - a.score;
     });
 }
-
 
 async function rankAnime(id, title, type) {
     return new Promise((resolve) => {
@@ -1350,23 +1346,9 @@ function initPopup() {
     }
 
     function loadAnimeList() {
-        const watchlistCheck = allResults.map(async (anime) => {
-            const inWatchlist = await isInWatchlist(anime.mal_id);
-            const notinWatchlist = !inWatchlist;
-            const inNotWatchlist = await isInNotWatchlist(anime.mal_id);
-            const notinNotWatchlist = !inNotWatchlist;
-            const toRender = notinWatchlist && notinNotWatchlist;
-            return { anime, toRender};
-        });
-
-        Promise.all(watchlistCheck).then(results => {
-            allAnimeItems = results
-                .filter(r => !r.toRender)
-                .map(r => r.anime);
-
-            filteredItems = [...allAnimeItems];
-            renderCheckboxList();
-        });
+        allAnimeItems = [...watchlist, ...notwatchlist];
+        filteredItems = [...watchlist, ...notwatchlist];
+        renderCheckboxList();
     }
 
     function renderCheckboxList() {
