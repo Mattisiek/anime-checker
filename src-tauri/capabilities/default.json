@@ -7,6 +7,7 @@
     "core:default",
     "opener:default",
     "fs:default",
+    "http:default",
     "fs:allow-write-text-file",
     "fs:allow-exists",
     "fs:allow-mkdir",
@@ -16,6 +17,13 @@
       "allow": [
         { "path": "$RESOURCE/**" },
         { "path": "$APPDATA/**" }
+      ]
+    },
+    {
+      "identifier": "http:allow-fetch",
+      "allow": [
+        { "url": "https://api.tenrai.dev/**" },
+        { "url": "https://api.tenrai.org/**" }
       ]
     },
     {

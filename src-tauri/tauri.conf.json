@@ -17,7 +17,7 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self' ipc.localhost http://ipc.localhost tauri://localhost; connect-src 'self' ipc.localhost http://ipc.localhost tauri://localhost https://cdn.jsdelivr.net https://pyodide-resources.wasm.sh https://api.jikan.moe https://api.tenrai.ext https://api.tenrai.dev https://api.tenrai.org https://pypi.org https://files.pythonhosted.org; img-src 'self' asset: http://asset.localhost blob: data:;"
     }
   },
   "bundle": {
