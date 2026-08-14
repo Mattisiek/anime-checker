@@ -36,6 +36,7 @@ src-tauri/Cargo.lock
 !tsconfig.json
 !src-tauri/tauri.conf.json
 !src-tauri/capabilities/*.json
+!src-tauri/resources/**
 
 # Tauri updater private key
 *.key
