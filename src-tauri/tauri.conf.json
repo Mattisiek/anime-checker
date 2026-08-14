@@ -32,8 +32,11 @@
       "icons/icon.ico"
     ],
     "resources": [
-      "resources/anime_df.csv",
-      "resources/model.ipynb"
+      "resources/model.ipynb",
+      "resources/svd_model.joblib",
+      "resources/svd_vectors.npy",
+      "resources/df_norm_sparse.npz",
+      "resources/anime_names.json"
     ]
   },
   "plugins": {

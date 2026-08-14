@@ -1,5 +1,5 @@
 const { fs, path } = window.__TAURI__;
-const { readTextFile } = window.__TAURI__.fs;
+const { readTextFile, readFile } = window.__TAURI__.fs;
 const { resolveResource } = window.__TAURI__.path;
 
 import { loadPyodide } from "https://cdn.jsdelivr.net/pyodide/v0.26.0/full/pyodide.mjs";
@@ -30,11 +30,12 @@ export async function initMLModel() {
 
         await pyodideInstance.runPythonAsync(`
             import sys, warnings, os, json, pandas as pd, time, numpy as np, math, requests
+            import joblib
             from pathlib import Path
             from types import ModuleType
-            from sklearn.metrics.pairwise import cosine_similarity
             from sklearn.neighbors import NearestNeighbors
-            warnings.filterwarnings("ignore")
+            from sklearn.decomposition import TruncatedSVD
+            warnings.filterwarnings("ignore", category=DeprecationWarning)
 
             if 'distutils' not in sys.modules:
                 d = ModuleType('distutils'); v = ModuleType('distutils.version')
@@ -46,22 +47,93 @@ export async function initMLModel() {
                 sys.modules['distutils'] = d; sys.modules['distutils.version'] = v
         `);
 
-        const csvPath = await resolveResource('resources/anime_df.csv');
-        const csvContent = await readTextFile(csvPath);
+
+
+
+
+
+        const animeNamesPath = await resolveResource('resources/anime_names.json');
+        const animeNamesData = await readFile(animeNamesPath);
+
         try {
-            pyodideInstance.FS.stat('anime_df.csv');
+            pyodideInstance.FS.stat('anime_names.json');
         } catch {
-            pyodideInstance.FS.writeFile('anime_df.csv', csvContent, { encoding: 'utf8' });
+            pyodideInstance.FS.writeFile('anime_names.json', new Uint8Array(animeNamesData));
         }
 
         await pyodideInstance.runPythonAsync(`
-            df = pd.read_csv('anime_df.csv')
-            if len(df.columns) > 0:
-                df.rename(columns={df.columns[0]: 'usernames'}, inplace=True)
-            print("DataFrame loaded and column renamed.")
-            df = df.set_index(df.columns[0])
-            df = df.astype(float)
+            import json
+            import warnings
+            warnings.filterwarnings('ignore')
+            
+            with open('anime_names.json', 'r', encoding='utf-8') as f:
+                anime_names = json.load(f)
         `);
+
+
+
+
+
+
+        const dfNormPath = await resolveResource('resources/df_norm_sparse.npz');
+        const dfNormData = await readFile(dfNormPath);
+
+        try {
+            pyodideInstance.FS.stat('df_norm_sparse.npz');
+        } catch {
+            pyodideInstance.FS.writeFile('df_norm_sparse.npz', new Uint8Array(dfNormData));
+        }
+
+        await pyodideInstance.runPythonAsync(`
+            import scipy.sparse as sp
+            import warnings
+            warnings.filterwarnings('ignore')
+            
+            df_normalized = sp.load_npz('df_norm_sparse.npz')
+        `);
+
+
+
+
+        const svgPath = await resolveResource('resources/svd_vectors.npy');
+        const svgData = await readFile(svgPath);
+
+        try {
+            pyodideInstance.FS.stat('svd_vectors.npy');
+        } catch {
+            pyodideInstance.FS.writeFile('svd_vectors.npy', new Uint8Array(svgData));
+        }
+
+        await pyodideInstance.runPythonAsync(`
+            import pandas as pd
+            import warnings
+            warnings.filterwarnings('ignore')
+            
+            dense_user_vectors = np.load('svd_vectors.npy')
+        `);
+
+
+
+
+        
+
+        const svdModelPath = await resolveResource('resources/svd_model.joblib');
+        const modelData = await readFile(svdModelPath);
+
+        try {
+            pyodideInstance.FS.stat('svd_model.joblib');
+        } catch {
+            pyodideInstance.FS.writeFile('svd_model.joblib', new Uint8Array(modelData));
+        }
+
+        await pyodideInstance.runPythonAsync(`
+            import pandas as pd
+            import warnings
+            warnings.filterwarnings('ignore')
+            
+            svd = joblib.load('svd_model.joblib')
+        `);
+
 
         const modelPath = await resolveResource('resources/model.ipynb');
         notebookCache = JSON.parse(await readTextFile(modelPath));
@@ -126,13 +198,12 @@ export async function runRecommendations() {
         `);
 
         for (const [index, cell] of notebookCache.cells.entries()) {
-            if (index <= 4) continue;
+            if (index <= 3) continue;
             if (cell.cell_type === 'code') {
                 let code = cell.source.join('');
                 if (code.includes('tauri.conf.json')) {
                     code = "config = {'identifier': 'default_app'}";
                 }
-                code = code.replace("pd.read_csv('anime_df.csv')", "pd.read_csv('/home/pyodide/anime_df.csv')");
 
                 await pyodide.runPythonAsync(code);
             }

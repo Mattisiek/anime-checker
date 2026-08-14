@@ -20,6 +20,13 @@
       ]
     },
     {
+      "identifier": "fs:allow-read-file",
+      "allow": [
+        { "path": "$RESOURCE/**" },
+        { "path": "$APPDATA/**" }
+      ]
+    },
+    {
       "identifier": "http:allow-fetch",
       "allow": [
         { "url": "https://api.tenrai.dev/**" },
