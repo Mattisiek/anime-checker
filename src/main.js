@@ -6,6 +6,7 @@ import { rankAnime } from "./ui/animeList.js";
 import { initPopup, initPopup2, initPopup3 } from "./ui/popups.js";
 import { loadAllAnimeBySeason, ShowAnime, ShowRecommendations } from "./services/animeService.js";
 import { hardReset, initMainSearch } from "./services/additionalFeatures.js";
+import { initPaths } from "./config/paths.js";
 
 export var originalResults = [];
 export var allResults = [];
@@ -137,6 +138,7 @@ hardResetBtn.addEventListener('click', async () => {
     originalResults = updatedData.originalResults;
 });
 
+await initPaths();
 loadAllAnimeBySeason();
 initPopup();
 initPopup2();

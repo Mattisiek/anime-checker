@@ -1,5 +1,5 @@
 # Logs
-logs
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -7,14 +7,13 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
+node_modules/
+dist/
+dist-ssr/
 *.local
 
 # Editor directories and files
-.vscode/*
-!.vscode/extensions.json
+.vscode/
 .idea
 .DS_Store
 *.suo
@@ -29,17 +28,8 @@ src-tauri/debug/
 src-tauri/release/
 src-tauri/Cargo.lock
 
-# User data files (these are created when app runs)
-*.json
-*.txt
-!package.json
-!tsconfig.json
-!src-tauri/tauri.conf.json
-!src-tauri/capabilities/*.json
 !src-tauri/resources/**
 
-# Tauri updater private key
-*.key
-tauri.key
-animeChecker.key
+.geminiignore
+
 .tauri/

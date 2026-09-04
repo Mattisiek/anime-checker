@@ -22,8 +22,13 @@ export async function getWatchlist() {
 }
 
 export async function getNotWatchlist() {
-    const content = await fs.readTextFile(NOTWATCHLIST_PATH);
-    return JSON.parse(content);
+    try {
+        const content = await fs.readTextFile(NOTWATCHLIST_PATH);
+        return JSON.parse(content);
+    } catch (error) {
+        console.error("FAILED TO READ OR PARSE NOTWATCHLIST JSON:", error);
+        return [];
+    }
 }
 
 export async function writeToCache(l) {

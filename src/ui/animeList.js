@@ -125,32 +125,20 @@ export async function renderList(list, recomendations = false) {
         if (anime.episodes !== null && anime.episodes.toString().toLowerCase() !== "unknown") {
             episodesHtml = `<p>Episodes: ${anime.episodes}</p>`;
         }
-
-        if (!recomendations && anime.status == "Finished Airing") {
-            buttonHtml = `
-                <button 
-                    type="button"
-                    class="add-btn" 
-                    data-id="${anime.mal_id}" 
-                    data-title="${anime.title.replace(/"/g, '&quot;')}" 
-                    data-english_title="${anime.title_english?.replace(/"/g, '&quot;')}" 
-                    data-type="${anime.type}">
-                    I have watched it
-                </button>
-            `;
-        }
-        else if (!recomendations) {
-            buttonHtml = `
-                <button 
-                    type="button"
-                    class="fake-add-btn" 
-                    data-id="${anime.mal_id}" 
-                    data-title="${anime.title.replace(/"/g, '&quot;')}" 
-                    data-english_title="${anime.title_english?.replace(/"/g, '&quot;')}" 
-                    data-type="${anime.type}">
-                    I have watched it
-                </button>
-            `;
+        if (anime.status === "Finished Airing"){
+            if (!recomendations) {
+                buttonHtml = `
+                    <button 
+                        type="button"
+                        class="add-btn" 
+                        data-id="${anime.mal_id}" 
+                        data-title="${anime.title.replace(/"/g, '&quot;')}" 
+                        data-english_title="${anime.title_english?.replace(/"/g, '&quot;')}" 
+                        data-type="${anime.type}">
+                        I have watched it
+                    </button>
+                `;
+            }
         }
         buttonHtml2 = `
             <button 

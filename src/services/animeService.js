@@ -1,5 +1,5 @@
 import { getSeasonalAnime, getSingleAnime } from "../api/getAnime.js";
-import { getCachelist, getSeason, writeToCache, setSeason } from "./files.js";
+import { getCachelist, getSeason, writeToCache, setSeason, removeFromWatchlist, removeFromNotWatchlist } from "./files.js";
 import { initFiles } from "./initFiles.js";
 import { allResults, originalResults } from "../main.js";
 import { renderList } from "../ui/animeList.js";
@@ -107,9 +107,11 @@ export async function loadAllAnimeBySeason() {
 
     for (const cachedAnime of cacheList) {
         isInResult = false;
+        let rememberedStatus;
         for (const anime of allResults) {
             if (cachedAnime.title === anime.title) {
                 isInResult = true;
+                rememberedStatus = anime.status;
             }
         }
         if (!isInResult) {
@@ -129,6 +131,10 @@ export async function loadAllAnimeBySeason() {
                 allResults.push(cachedAnimeToAdd);
                 originalResults.push(cachedAnimeToAdd);
             }
+        }
+        else if(rememberedStatus === "Finished Airing" && cachedAnime.status !== "Finished Airing"){
+            removeFromWatchlist(cachedAnime.mal_id);
+            removeFromNotWatchlist(cachedAnime.mal_id);
         }
     }
 
