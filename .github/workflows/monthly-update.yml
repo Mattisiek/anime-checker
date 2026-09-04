@@ -1,0 +1,32 @@
+name: Monthly Asset Generator
+
+on:
+  schedule:
+    - cron: '0 0 5 * *'
+  workflow_dispatch:
+
+jobs:
+  update-models:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Re-generate Sparse Model & Names
+        run: |
+          pip install requests time mal_scraper logging pandas numpy sklearn joblib json scipy.sparse
+          python src-tauri/resources/getUsernames.py
+
+      - name: Commit updated resources
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add src-tauri/resources/df_norm_sparse.npz
+          git add src-tauri/resources/anime_names.json
+          git add src-tauri/resources/svd_model.joblib
+          git commit -m "chore: monthly ML resources update" || exit 0
+          git push
