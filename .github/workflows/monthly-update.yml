@@ -2,7 +2,7 @@ name: Monthly Asset Generator
 
 on:
   schedule:
-    - cron: '0 0 5 * *'
+    - cron: '0 0 7 * *'
   workflow_dispatch:
 
 jobs:
@@ -18,7 +18,7 @@ jobs:
 
       - name: Re-generate Sparse Model & Names
         run: |
-          pip install requests time mal_scraper logging pandas numpy sklearn joblib json scipy.sparse
+          pip install requests mal_scraper pandas numpy scikit-learn joblib scipy
           python src-tauri/resources/getUsernames.py
 
       - name: Commit updated resources
